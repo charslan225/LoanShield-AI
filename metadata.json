@@ -1,0 +1,6 @@
+{
+  "name": "LoanShield AI",
+  "description": "Know the Truth Before You Borrow. AI-powered consumer protection and financial transparency platform analyzing digital loans, hidden fees, and privacy risks in Pakistan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

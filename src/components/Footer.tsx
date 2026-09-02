@@ -1,7 +1,10 @@
 import React from 'react';
 import { ShieldCheck, AlertTriangle, PhoneCall, ExternalLink, Mail, Lock } from 'lucide-react';
+import { useLanguage } from '../utils/LanguageContext';
 
 export const Footer: React.FC = () => {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-[#080808] text-[#888888] border-t border-[#1f1f1f] pt-12 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,10 +17,10 @@ export const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1">
-                Official Consumer Protection Disclaimer
+                {t.footer.disclaimerTitle}
               </h4>
               <p className="text-xs leading-relaxed text-[#A0A0A0] font-normal">
-                LoanShield AI provides AI-assisted information and risk analysis based on the information and documents submitted by the user. It does not provide legal, financial, or regulatory advice and does not determine whether a lender has violated the law. Always verify lending entities on the official Securities and Exchange Commission of Pakistan (SECP) and State Bank of Pakistan (SBP) registries before borrowing.
+                {t.footer.disclaimerText}
               </p>
             </div>
           </div>

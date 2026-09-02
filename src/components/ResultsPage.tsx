@@ -41,6 +41,7 @@ import {
   Pie 
 } from 'recharts';
 import { AnalysisResult, LanguageCode } from '../types';
+import { useLanguage } from '../utils/LanguageContext';
 
 interface ResultsPageProps {
   analysis: AnalysisResult;
@@ -55,6 +56,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   setLanguage,
   onNewAnalysis
 }) => {
+  const { t, isUrdu, isRtl } = useLanguage();
   const [activeTab, setActiveTab] = useState<'overview' | 'promise_vs_reality' | 'financials' | 'clauses' | 'privacy' | 'checklist'>('overview');
   
   // Clause category filter
@@ -237,7 +239,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             className="px-4 py-2 rounded-xl bg-[#FF6321] hover:bg-[#ff773d] text-black text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5"
           >
             <MessageSquare className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Ask AI Advisor</span>
+            <span>{t.results.askAdvisor}</span>
           </button>
 
           <button
@@ -246,7 +248,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             className="px-3.5 py-2 rounded-xl border border-[#2b2b2b] bg-[#161616] hover:bg-[#202020] text-[#E0E0E0] text-xs font-semibold shadow-2xs transition-colors flex items-center space-x-1.5"
           >
             <Printer className="w-3.5 h-3.5 text-[#888888]" />
-            <span>Print / PDF</span>
+            <span>{t.results.printPdf}</span>
           </button>
         </div>
 
@@ -261,7 +263,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             {/* Left Score Gauge Block */}
             <div className="lg:col-span-4 text-center lg:text-left space-y-4">
               <span className="text-xs font-extrabold uppercase tracking-wider text-[#888888]">
-                LoanShield Information Risk Assessment
+                {t.results.riskScoreTitle}
               </span>
 
               <div className="flex items-baseline justify-center lg:justify-start space-x-3">
@@ -405,12 +407,12 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
       <div className="border-b border-[#222222]">
         <nav className="flex space-x-2 overflow-x-auto pb-2">
           {[
-            { id: 'overview', label: 'AI Executive Summary', icon: Sparkles },
-            { id: 'promise_vs_reality', label: 'Promise vs Reality', icon: Scale },
-            { id: 'financials', label: 'Financials & Deductions', icon: Calculator },
-            { id: 'clauses', label: 'Urdu & Roman Clauses', icon: Globe },
-            { id: 'privacy', label: 'Permissions & Privacy', icon: Smartphone },
-            { id: 'checklist', label: 'SECP Verification Checklist', icon: CheckCircle2 }
+            { id: 'overview', label: t.results.tabOverview, icon: Sparkles },
+            { id: 'promise_vs_reality', label: t.results.tabPromiseVsReality, icon: Scale },
+            { id: 'financials', label: t.results.tabFinancials, icon: Calculator },
+            { id: 'clauses', label: t.results.tabClauses, icon: Globe },
+            { id: 'privacy', label: t.results.tabPrivacy, icon: Smartphone },
+            { id: 'checklist', label: t.results.tabChecklist, icon: CheckCircle2 }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

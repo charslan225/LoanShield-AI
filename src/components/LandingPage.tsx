@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { DEMO_SCENARIOS } from '../data/demoScenarios';
 import { AnalysisResult, DemoScenario } from '../types';
+import { useLanguage } from '../utils/LanguageContext';
 
 interface LandingPageProps {
   onStartAnalysis: () => void;
@@ -31,6 +32,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onSelectDemoScenario,
   onOpenDemoModal
 }) => {
+  const { t, isUrdu } = useLanguage();
+
   return (
     <div className="space-y-20 pb-16 bg-[#050505] text-[#E0E0E0]">
       
@@ -43,20 +46,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Tagline Badge */}
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-[#FF6321]/15 border border-[#FF6321]/30 text-[#FF6321] text-xs font-bold tracking-wide uppercase">
               <ShieldCheck className="w-4 h-4 text-[#FF6321]" />
-              <span>Consumer Protection Platform for Pakistan</span>
+              <span>{t.landing.badge}</span>
             </div>
 
             {/* Main Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.15]">
-              Know the Truth <br className="hidden sm:inline" />
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.25]">
+              {t.landing.heroTitlePrefix}
               <span className="text-[#FF6321]">
-                Before You Borrow.
+                {t.landing.heroTitleHighlight}
               </span>
+              {t.landing.heroTitleSuffix}
             </h1>
 
             {/* Subheading */}
             <p className="text-base sm:text-lg text-[#A0A0A0] font-normal leading-relaxed max-w-2xl mx-auto">
-              Upload a loan offer or agreement and let AI help you understand hidden deductions, real interest rates, and privacy risks before you sign.
+              {t.landing.heroDescription}
             </p>
 
             {/* Call to Actions */}
@@ -67,7 +71,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-[#FF6321] hover:bg-[#ff7538] text-black font-extrabold text-sm sm:text-base shadow-lg shadow-[#FF6321]/20 transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2.5"
               >
                 <Sparkles className="w-5 h-5 stroke-[2.5]" />
-                <span>Analyze Your Loan</span>
+                <span>{t.landing.analyzeButton}</span>
                 <ArrowRight className="w-4 h-4 stroke-[2.5]" />
               </button>
 
@@ -77,7 +81,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 className="w-full sm:w-auto px-6 py-4 rounded-xl bg-[#141414] hover:bg-[#1f1f1f] text-[#E0E0E0] border border-[#2a2a2a] font-semibold text-sm sm:text-base shadow-xs transition-all flex items-center justify-center space-x-2"
               >
                 <span className="w-2.5 h-2.5 rounded-full bg-[#FF6321] animate-ping"></span>
-                <span>Explore Fictional Demo Scenarios</span>
+                <span>{t.landing.tryDemoButton}</span>
               </button>
             </div>
 

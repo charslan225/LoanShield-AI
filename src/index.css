@@ -4,6 +4,12 @@
   body {
     background-color: #050505;
     color: #E0E0E0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  .font-urdu, [lang="ur"], [dir="rtl"] {
+    font-family: 'Noto Nastaliq Urdu', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    line-height: 1.8;
   }
 
   /* Custom dark scrollbar */

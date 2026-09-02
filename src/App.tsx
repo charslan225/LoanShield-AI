@@ -9,11 +9,12 @@ import { DashboardPage } from './components/DashboardPage';
 import { DemoModal } from './components/DemoModal';
 import { AuthModal } from './components/AuthModal';
 import { DEMO_SCENARIOS } from './data/demoScenarios';
-import { AnalysisResult, DemoScenario, LanguageCode, UserProfile } from './types';
+import { AnalysisResult, DemoScenario, UserProfile } from './types';
+import { useLanguage } from './utils/LanguageContext';
 
 export function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'analyze' | 'results' | 'dashboard'>('landing');
-  const [language, setLanguage] = useState<LanguageCode>('en');
+  const { language, setLanguage } = useLanguage();
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('loanshield_user');
     return saved ? JSON.parse(saved) : null;

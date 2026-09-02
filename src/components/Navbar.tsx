@@ -13,6 +13,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { LanguageCode, UserProfile } from '../types';
+import { useLanguage } from '../utils/LanguageContext';
 
 interface NavbarProps {
   currentView: 'landing' | 'analyze' | 'results' | 'dashboard';
@@ -35,6 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenDemo
 }) => {
+  const { t } = useLanguage();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -70,7 +72,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] font-medium text-[#888888] hidden sm:block">
-                Know the Truth Before You Borrow
+                {t.nav.tagline}
               </p>
             </div>
           </div>
@@ -86,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-[#888888] hover:text-white hover:bg-[#111111]'
               }`}
             >
-              Home
+              {t.nav.home}
             </button>
             <button
               id="nav-btn-analyze"
@@ -98,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Sparkles className="w-4 h-4 text-[#FF6321]" />
-              <span>Analyze Loan</span>
+              <span>{t.nav.analyze}</span>
             </button>
             <button
               id="nav-btn-dashboard"
@@ -110,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <History className="w-4 h-4 text-[#888888]" />
-              <span>Audit History</span>
+              <span>{t.nav.history}</span>
             </button>
             <button
               id="nav-btn-demo"
@@ -118,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="px-3 py-1.5 ml-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-[#1A1A1A] text-[#FF6321] border border-[#FF6321]/30 hover:bg-[#FF6321]/10 transition-colors flex items-center space-x-1.5"
             >
               <span className="w-2 h-2 rounded-full bg-[#FF6321] animate-pulse"></span>
-              <span>Demo Scenarios</span>
+              <span>{t.nav.demoScenarios}</span>
             </button>
           </nav>
 

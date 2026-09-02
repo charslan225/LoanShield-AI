@@ -19,6 +19,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { PermissionType } from '../types';
+import { useLanguage } from '../utils/LanguageContext';
 
 interface AnalyzePageProps {
   onStartAnalysisProcess: (formData: any) => void;
@@ -29,6 +30,7 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
   onStartAnalysisProcess,
   onSelectDemo
 }) => {
+  const { t, isUrdu } = useLanguage();
   const [currentStep, setCurrentStep] = useState<number>(1);
   
   // Method

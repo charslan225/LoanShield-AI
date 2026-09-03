@@ -402,21 +402,19 @@ IMPORTANT AI SAFETY RULES:
   contents.push({ text: prompt });
 
   const modelsToTry = [
-    'gemini-3.1-flash-lite',
-    'gemini-flash-latest',
-    'gemini-3.8-flash'
+    'gemini-3.8-flash',
+    'gemini-flash-latest'
   ];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: contents.length === 1 ? contents[0].text : contents,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: contents.length === 1 ? contents[0].text : contents,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
               type: Type.OBJECT,
               properties: {
                 lenderName: { type: Type.STRING },
@@ -531,15 +529,14 @@ IMPORTANT AI SAFETY RULES:
         return JSON.parse(rawJson);
       } catch (err: any) {
         lastError = err;
-        console.warn(`Model ${modelName} attempt ${attempt + 1} failed or busy:`, err?.message || err);
-        // If busy, wait 500ms before retrying or switching models
-        await new Promise(r => setTimeout(r, 500));
+        const msg = err?.message || String(err);
+        console.warn(`Model ${modelName} temporary issue (${msg.slice(0, 120)}...), trying alternate model...`);
+        await new Promise(r => setTimeout(r, 400));
       }
     }
-  }
 
-  throw lastError || new Error('All Gemini models unavailable');
-}
+    throw lastError || new Error('All Gemini models unavailable');
+  }
 
 /**
  * Intelligent deterministic fallback if Gemini is not invoked or offline
@@ -960,8 +957,7 @@ Provide a clear, objective, protective, and jargon-free answer tailored to Pakis
 - Keep response concise, structured, and easy to understand (150-250 words).`;
 
   const modelsToTry = [
-    'gemini-3.7-flash',
-    'gemini-3.1-flash-lite',
+    'gemini-3.8-flash',
     'gemini-flash-latest'
   ];
   for (const modelName of modelsToTry) {
@@ -974,8 +970,9 @@ Provide a clear, objective, protective, and jargon-free answer tailored to Pakis
         }
       });
       if (response.text) return response.text;
-    } catch (err) {
-      console.warn(`Advisor model ${modelName} failed, trying next...`, err);
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      console.warn(`Advisor model ${modelName} temporary issue (${msg.slice(0, 80)}...), trying alternate...`);
     }
   }
 

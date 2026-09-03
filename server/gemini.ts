@@ -147,6 +147,7 @@ export async function analyzeLoanWithAI(params: AnalyzeDocumentParams): Promise<
     markupRateAnnual: markupRate,
     charges: charges,
     numberOfInstallments: extractedData.numberOfInstallments || 1,
+    totalRepaymentAmount: extractedData.totalRepaymentAmount || extractedData.repaymentAmount || params.expectedRepayment || null,
     deductionStatus: extractedData.deductionStatus,
     hasPotentialUnclearDeductions: extractedData.hasPotentialUnclearDeductions,
     isDisbursementDeferred,
@@ -403,9 +404,9 @@ IMPORTANT AI SAFETY RULES:
   contents.push({ text: prompt });
 
   const modelsToTry = [
-    'gemini-3.7-flash',
     'gemini-3.1-flash-lite',
-    'gemini-flash-latest'
+    'gemini-flash-latest',
+    'gemini-3.8-flash'
   ];
   let lastError: any = null;
 
@@ -414,7 +415,7 @@ IMPORTANT AI SAFETY RULES:
       try {
         const response = await ai.models.generateContent({
           model: modelName,
-          contents: contents.length === 1 ? contents[0].text : { parts: contents },
+          contents: contents.length === 1 ? contents[0].text : contents,
           config: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -549,12 +550,53 @@ function generateBaselineExtraction(params: AnalyzeDocumentParams) {
   let principal = params.manualPrincipal || params.advertisedAmount || 50000;
   let duration = params.manualDurationDays || 30;
   let lenderName = params.lenderName || 'Digital Credit Provider';
-  let upfrontDeduction = params.manualUpfrontDeductions || (principal * 0.12);
-  let totalRepayment = 0;
+  let upfrontDeduction = params.manualUpfrontDeductions !== undefined && params.manualUpfrontDeductions !== null 
+    ? params.manualUpfrontDeductions 
+    : 0;
+  let totalRepayment = params.expectedRepayment || 0;
   const explicitPerms: PermissionType[] = [];
   let permsSpecifiedInDoc = false;
   const explicitCharges: any[] = [];
   let detectedDiscrepancies: any[] = [];
+
+  // If method is MANUAL_ENTRY, prioritize user's exact entered values directly
+  if (params.method === 'MANUAL_ENTRY') {
+    principal = params.manualPrincipal || params.advertisedAmount || 25000;
+    duration = params.manualDurationDays || 30;
+    if (upfrontDeduction > 0) {
+      explicitCharges.push({
+        name: params.manualChargesDescription || 'Upfront Processing Deduction',
+        type: 'UPFRONT_DEDUCTION',
+        amount: upfrontDeduction,
+        percentage: principal > 0 ? Math.round((upfrontDeduction / principal) * 100 * 10) / 10 : null,
+        isDeductedFromDisbursement: true,
+        description: params.manualChargesDescription || 'Upfront fee entered by user',
+        isClearlyDisclosed: true
+      });
+    }
+    if (!totalRepayment) {
+      const markupAmt = params.manualMarkupRateAnnual 
+        ? principal * (params.manualMarkupRateAnnual / 100) * (duration / 365)
+        : 0;
+      totalRepayment = principal + markupAmt;
+    }
+    return {
+      lenderName,
+      appName: params.appName || `${lenderName} App`,
+      principalAmount: principal,
+      advertisedAmount: params.advertisedAmount || principal,
+      durationDays: duration,
+      markupRateAnnual: params.manualMarkupRateAnnual ?? null,
+      numberOfInstallments: 1,
+      latePenaltyRatePerDay: null,
+      isSecpRegisteredClaimed: false,
+      devicePermissionsSpecified: (params.requestedPermissions || []).length > 0,
+      explicitRequestedPermissions: params.requestedPermissions || [],
+      charges: explicitCharges,
+      discrepancies: [],
+      clauses: []
+    };
+  }
 
   // If raw text is available, attempt to extract exact numerical patterns and fee lines
   if (params.rawText) {
@@ -562,14 +604,23 @@ function generateBaselineExtraction(params: AnalyzeDocumentParams) {
     const lowerText = text.toLowerCase();
     
     // Check for Approved Loan Amount / Sanction Amount
-    const approvedMatch = text.match(/(?:Approved Loan Amount|Approved Amount|Sanctioned Amount|Loan Amount|Principal Amount)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
+    const approvedMatch = text.match(/(?:Approved Loan Amount|Approved Amount|Sanctioned Amount|Loan Amount|Principal Amount|Borrower Sanction Limit|Facility Limit|Sanction Limit)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
     if (approvedMatch && approvedMatch[1]) {
       principal = parseInt(approvedMatch[1].replace(/,/g, ''), 10);
+    } else {
+      // General match for loan amounts like "Loan 15,000" or "Rs 15,000"
+      const broadAmountMatch = text.match(/(?:loan|sanction|limit|amount|borrow|principal|rs\.?|pkr)\s*[:=-]?\s*(?:pkr|rs\.?)?\s*([\d,]{4,})/i);
+      if (broadAmountMatch && broadAmountMatch[1]) {
+        const val = parseInt(broadAmountMatch[1].replace(/,/g, ''), 10);
+        if (val >= 1000 && val <= 5000000) {
+          principal = val;
+        }
+      }
     }
 
     // Check for specific fee lines:
     // 1. Processing Fee
-    const procMatch = text.match(/(?:Processing Fee|Processing Charge)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
+    const procMatch = text.match(/(?:Processing Fee|Processing Charge|Technical Processing Charge|Platform Fee)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
     if (procMatch && procMatch[1]) {
       const amt = parseInt(procMatch[1].replace(/,/g, ''), 10);
       explicitCharges.push({
@@ -584,7 +635,7 @@ function generateBaselineExtraction(params: AnalyzeDocumentParams) {
     }
 
     // 2. Service Charge
-    const srvMatch = text.match(/(?:Service Charge|Service Fee|Platform Fee)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
+    const srvMatch = text.match(/(?:Service Charge|Service Fee|Platform Charge)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
     if (srvMatch && srvMatch[1]) {
       const amt = parseInt(srvMatch[1].replace(/,/g, ''), 10);
       explicitCharges.push({
@@ -599,18 +650,37 @@ function generateBaselineExtraction(params: AnalyzeDocumentParams) {
     }
 
     // 3. Verification Fee
-    const verMatch = text.match(/(?:Verification Fee|Appraisal Fee|Documentation Fee)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
+    const verMatch = text.match(/(?:Verification Fee|Account Verification Fee|Risk Assessment Surcharge|Appraisal Fee|Documentation Fee)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
     if (verMatch && verMatch[1]) {
       const amt = parseInt(verMatch[1].replace(/,/g, ''), 10);
       explicitCharges.push({
-        name: 'Verification Fee',
+        name: 'Verification & Assessment Fee',
         type: 'UPFRONT_DEDUCTION',
         amount: amt,
         percentage: principal > 0 ? Math.round((amt / principal) * 100 * 10) / 10 : null,
         isDeductedFromDisbursement: true,
-        description: 'Identity verification fee deducted upfront.',
+        description: 'Identity and risk assessment charge deducted upfront.',
         isClearlyDisclosed: true
       });
+    }
+
+    // Generic upfront deduction if no specific matches found
+    if (explicitCharges.length === 0) {
+      const genericDeductMatch = text.match(/(?:deduction|deducted|charges?|fees?|katauti)\s*[:=-]?\s*(?:pkr|rs\.?)?\s*([\d,]{3,})/i);
+      if (genericDeductMatch && genericDeductMatch[1]) {
+        const amt = parseInt(genericDeductMatch[1].replace(/,/g, ''), 10);
+        if (amt > 0 && amt < principal) {
+          explicitCharges.push({
+            name: 'Upfront Service Deduction',
+            type: 'UPFRONT_DEDUCTION',
+            amount: amt,
+            percentage: principal > 0 ? Math.round((amt / principal) * 100 * 10) / 10 : null,
+            isDeductedFromDisbursement: true,
+            description: 'Disclosed upfront deduction extracted from terms.',
+            isClearlyDisclosed: true
+          });
+        }
+      }
     }
 
     // Check for potential deductions mentioned without exact amounts (Category C)

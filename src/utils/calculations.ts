@@ -28,6 +28,7 @@ export interface CalculationInput {
   markupRateAnnual?: number | null; // e.g. 24% annual
   charges: LoanCharge[];
   numberOfInstallments?: number;
+  totalRepaymentAmount?: number | null;
   deductionStatus?: DeductionStatus;
   hasPotentialUnclearDeductions?: boolean;
   isDisbursementDeferred?: boolean;
@@ -118,22 +119,34 @@ export function calculateFinancials(input: CalculationInput): FinancialBreakdown
     isDisbursementConfirmed = false;
   }
 
-  // 3. Markup Amount Calculation
+  // 3. Markup Amount Calculation & Total Repayment Determination
   let estimatedMarkup = 0;
   let isMarkupConfirmed = true;
-  if (input.markupRateAnnual !== undefined && input.markupRateAnnual !== null && input.markupRateAnnual > 0) {
-    estimatedMarkup = principal * (input.markupRateAnnual / 100) * (duration / 365);
-  } else if (input.markupRateAnnual === null && !rawTextLower.includes('0% interest')) {
-    isMarkupConfirmed = false;
-  }
-
-  // 4. Total Repayment Amount
   let totalRepayment: number | null = null;
-  let isRepaymentConfirmed = isMarkupConfirmed && !input.isRepaymentDeferred;
 
-  if (isRepaymentConfirmed) {
+  if (input.totalRepaymentAmount !== undefined && input.totalRepaymentAmount !== null && input.totalRepaymentAmount > 0) {
+    totalRepayment = input.totalRepaymentAmount;
+    isMarkupConfirmed = true;
+    estimatedMarkup = Math.max(0, totalRepayment - principal - totalRecurringCharges);
+  } else if (input.markupRateAnnual !== undefined && input.markupRateAnnual !== null && input.markupRateAnnual > 0) {
+    estimatedMarkup = principal * (input.markupRateAnnual / 100) * (duration / 365);
     totalRepayment = Math.round(principal + estimatedMarkup + totalRecurringCharges);
+  } else if (input.markupRateAnnual === 0 || rawTextLower.includes('0% interest') || rawTextLower.includes('0% markup')) {
+    estimatedMarkup = 0;
+    totalRepayment = Math.round(principal + totalRecurringCharges);
+  } else {
+    // Check if rawText has explicit repayment mentioned e.g. "Total Repayment: PKR 22,000"
+    const repMatch = (input.rawText || '').match(/(?:Total Repayment|Repayment Amount|Estimated Total Repayment|Total Payable|Payable Amount|Total Repayable)[:\s]+(?:PKR|Rs\.?)?\s*([\d,]+)/i);
+    if (repMatch && repMatch[1]) {
+      totalRepayment = parseInt(repMatch[1].replace(/,/g, ''), 10);
+      isMarkupConfirmed = true;
+      estimatedMarkup = Math.max(0, totalRepayment - principal - totalRecurringCharges);
+    } else {
+      isMarkupConfirmed = false;
+    }
   }
+
+  let isRepaymentConfirmed = isMarkupConfirmed && totalRepayment !== null && !input.isRepaymentDeferred;
 
   // 5. Total Cost of Borrowing
   let totalCostOfBorrowing: number | null = null;

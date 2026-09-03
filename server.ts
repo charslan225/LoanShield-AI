@@ -19,8 +19,86 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
   // ==========================================
-  // API ROUTES
+  // FASTAPI PYTHON PROXY & INTEGRATION
   // ==========================================
+  const FASTAPI_URL = process.env.FASTAPI_URL || 'http://127.0.0.1:8000';
+
+  // Backend status check endpoint
+  app.get('/api/backend-status', async (req, res) => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 800);
+      const ping = await fetch(`${FASTAPI_URL}/api/health`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (ping.ok) {
+        const data: any = await ping.json();
+        return res.json({
+          connected: true,
+          type: 'FASTAPI_PYTHON',
+          service: data.service || 'LoanShield AI Python FastAPI Server',
+          url: FASTAPI_URL,
+          version: data.version || '1.0.0'
+        });
+      }
+    } catch {
+      // FastAPI not running
+    }
+    return res.json({
+      connected: false,
+      type: 'NODEJS_FALLBACK',
+      service: 'Node.js Express Fallback Server',
+      url: 'http://localhost:3000',
+      fastApiUrl: FASTAPI_URL,
+      instructions: 'Run `uvicorn main:app --port 8000 --reload` in backend_fastapi/ to activate Python FastAPI'
+    });
+  });
+
+  // Seamless FastAPI Forwarding Middleware
+  // If FastAPI is running on port 8000, all requests to /api/ are automatically forwarded directly to FastAPI!
+  app.use('/api', async (req, res, next) => {
+    if (req.path === '/backend-status' || req.path === '/health') {
+      return next();
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+      const ping = await fetch(`${FASTAPI_URL}/api/health`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (ping.ok) {
+        // Python FastAPI is ACTIVE! Forward request directly to Python FastAPI
+        const targetUrl = `${FASTAPI_URL}${req.originalUrl}`;
+        const hasBody = !['GET', 'HEAD'].includes(req.method);
+        const headers: Record<string, string> = {
+          'Accept': 'application/json'
+        };
+        if (hasBody) {
+          headers['Content-Type'] = 'application/json';
+        }
+        if (req.headers.authorization) {
+          headers['Authorization'] = req.headers.authorization;
+        }
+
+        const fastApiRes = await fetch(targetUrl, {
+          method: req.method,
+          headers,
+          body: hasBody ? JSON.stringify(req.body) : undefined
+        });
+
+        const contentType = fastApiRes.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await fastApiRes.json();
+          return res.status(fastApiRes.status).json(data);
+        } else {
+          const text = await fastApiRes.text();
+          return res.status(fastApiRes.status).send(text);
+        }
+      }
+    } catch {
+      // If FastAPI is not running or down, fall through to Node.js handlers
+    }
+    next();
+  });
 
   // Health check
   app.get('/api/health', (req, res) => {

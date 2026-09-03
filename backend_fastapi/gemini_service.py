@@ -11,7 +11,10 @@ try:
 except ImportError:
     genai = None
 
-from .secp_rules import SECP_VIOLATION_DEFINITIONS, SECP_REGULATORY_BENCHMARKS
+try:
+    from secp_rules import SECP_VIOLATION_DEFINITIONS, SECP_REGULATORY_BENCHMARKS
+except (ImportError, ValueError):
+    from .secp_rules import SECP_VIOLATION_DEFINITIONS, SECP_REGULATORY_BENCHMARKS
 
 def get_gemini_client():
     api_key = os.environ.get("GEMINI_API_KEY")

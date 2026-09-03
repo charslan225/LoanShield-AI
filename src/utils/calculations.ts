@@ -379,9 +379,9 @@ export function calculateRiskAssessment(params: {
       reasons.push(`Minor upfront processing fee identified (${Math.round(ratio)}%).`);
     }
 
-    deductionFinding = `${Math.round(ratio)}% (PKR ${financials.totalDeductions.toLocaleString()}) deducted upfront before disbursement`;
-    deductionEvidence = `Total deductions: PKR ${financials.totalDeductions.toLocaleString()} from PKR ${financials.principalAmount.toLocaleString()} principal`;
-    deductionInterpretation = `The borrower receives PKR ${(financials.principalAmount - financials.totalDeductions).toLocaleString()} in hand, which is ${Math.round(ratio)}% less than the principal liability.`;
+    deductionFinding = `${Math.round(ratio)}% (PKR ${(financials.totalDeductions || 0).toLocaleString()}) deducted upfront before disbursement`;
+    deductionEvidence = `Total deductions: PKR ${(financials.totalDeductions || 0).toLocaleString()} from PKR ${(financials.principalAmount || 0).toLocaleString()} principal`;
+    deductionInterpretation = `The borrower receives PKR ${((financials.principalAmount || 0) - (financials.totalDeductions || 0)).toLocaleString()} in hand, which is ${Math.round(ratio)}% less than the principal liability.`;
   } else {
     // Category A: No deductions mentioned
     deductionScore = 0;

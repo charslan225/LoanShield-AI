@@ -107,7 +107,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
       } else {
         setAdvisorMessages(prev => [...prev, { 
           sender: 'advisor', 
-          text: `Based on the contract for ${analysis.lenderName}, the documented net cash is PKR ${analysis.financialBreakdown.actualDisbursedAmount.toLocaleString()} and total repayment is PKR ${analysis.financialBreakdown.totalRepaymentAmount.toLocaleString()}. Please review the upfront fee deductions and late penalty clauses carefully before proceeding.` 
+          text: `Based on the contract for ${analysis.lenderName}, the documented net cash is ${analysis.financialBreakdown?.actualDisbursedAmount !== null && analysis.financialBreakdown?.actualDisbursedAmount !== undefined ? 'PKR ' + analysis.financialBreakdown.actualDisbursedAmount.toLocaleString() : 'to be determined'} and total repayment is ${analysis.financialBreakdown?.totalRepaymentAmount !== null && analysis.financialBreakdown?.totalRepaymentAmount !== undefined ? 'PKR ' + analysis.financialBreakdown.totalRepaymentAmount.toLocaleString() : 'to be confirmed'}. Please review the upfront fee deductions and late penalty clauses carefully before proceeding.` 
         }]);
       }
     } catch (err) {
@@ -832,7 +832,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             <div className="p-5 rounded-2xl bg-[#111111] border border-[#222222] shadow-xs">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Documented Principal</span>
               <div className="text-xl sm:text-2xl font-black text-white mt-1">
-                PKR {fin.principalAmount.toLocaleString()}
+                PKR {(fin.principalAmount || 0).toLocaleString()}
               </div>
               <p className="text-[10px] text-[#777777] mt-1">Face value of loan facility</p>
             </div>
@@ -1148,7 +1148,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-900/50 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <span className="text-[#888888] block">Original Due Amount:</span>
-                <span className="font-bold text-white">PKR {fin.totalRepaymentAmount.toLocaleString()}</span>
+                <span className="font-bold text-white">{fin.totalRepaymentAmount !== null && fin.totalRepaymentAmount !== undefined ? `PKR ${fin.totalRepaymentAmount.toLocaleString()}` : 'Unconfirmed'}</span>
               </div>
               <div>
                 <span className="text-[#888888] block">Additional {simulateLateDays}-Day Penalty:</span>

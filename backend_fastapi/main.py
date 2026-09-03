@@ -5,16 +5,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .models import (
-    LoanAnalysisRequest,
-    ManualAnalysisRequest,
-    AdvisorQuestionRequest,
-    AuthSignUpRequest,
-    AuthLoginRequest,
-    AuthResetRequest
-)
-from .gemini_service import analyze_loan_document, answer_advisor_question
-from .storage import storage
+try:
+    from models import (
+        LoanAnalysisRequest,
+        ManualAnalysisRequest,
+        AdvisorQuestionRequest,
+        AuthSignUpRequest,
+        AuthLoginRequest,
+        AuthResetRequest
+    )
+    from gemini_service import analyze_loan_document, answer_advisor_question
+    from storage import storage
+except (ImportError, ValueError):
+    from .models import (
+        LoanAnalysisRequest,
+        ManualAnalysisRequest,
+        AdvisorQuestionRequest,
+        AuthSignUpRequest,
+        AuthLoginRequest,
+        AuthResetRequest
+    )
+    from .gemini_service import analyze_loan_document, answer_advisor_question
+    from .storage import storage
 
 app = FastAPI(
     title="LoanShield AI - Python FastAPI Backend",

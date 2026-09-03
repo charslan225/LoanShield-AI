@@ -207,7 +207,7 @@ export async function analyzeLoanWithAI(params: AnalyzeDocumentParams): Promise<
         interpretation: 'The actual amount received cannot be confirmed from the submitted document before approval.',
         confidenceLevel: 'HIGH'
       });
-    } else if (financials.actualDisbursedAmount < headlineAmount) {
+    } else if (financials.actualDisbursedAmount !== null && financials.actualDisbursedAmount < headlineAmount) {
       // Known Numerical Variance
       const diff = headlineAmount - financials.actualDisbursedAmount;
       const diffPct = Math.round((diff / headlineAmount) * 100);
@@ -215,14 +215,14 @@ export async function analyzeLoanWithAI(params: AnalyzeDocumentParams): Promise<
         id: 'disc-auto-1',
         category: 'LOAN_AMOUNT',
         riskType: 'KNOWN_RISK',
-        promised: `PKR ${headlineAmount.toLocaleString()} Approved / Advertised Loan`,
+        promised: `PKR ${(headlineAmount || 0).toLocaleString()} Approved / Advertised Loan`,
         actual: `PKR ${financials.actualDisbursedAmount.toLocaleString()} transferred (PKR ${diff.toLocaleString()} / ${diffPct}% deducted upfront)`,
         severity: diffPct >= 20 ? 'CRITICAL' : 'WARNING',
         isNumericalVariance: true,
         varianceAmount: diff,
         variancePercentage: diffPct,
         explanation: `PKR ${diff.toLocaleString()} (${diffPct}%) variance between advertised amount and net cash disbursed.`,
-        evidence: `Headline/Approved: PKR ${headlineAmount.toLocaleString()} vs Stated disbursement: PKR ${financials.actualDisbursedAmount.toLocaleString()} (Upfront Deductions: PKR ${diff.toLocaleString()} / ${diffPct}%)`,
+        evidence: `Headline/Approved: PKR ${(headlineAmount || 0).toLocaleString()} vs Stated disbursement: PKR ${financials.actualDisbursedAmount.toLocaleString()} (Upfront Deductions: PKR ${diff.toLocaleString()} / ${diffPct}%)`,
         interpretation: `Borrower receives ${diffPct}% less money than the advertised principal.`,
         confidenceLevel: 'HIGH'
       });
@@ -336,9 +336,11 @@ export async function analyzeLoanWithAI(params: AnalyzeDocumentParams): Promise<
       {
         id: 'ver-2',
         title: 'Confirm Net Cash vs Repayment Amount',
-        description: `Verify that receiving PKR ${financials.actualDisbursedAmount.toLocaleString()} is worth repaying PKR ${financials.totalRepaymentAmount.toLocaleString()}.`,
+        description: `Verify that receiving ${financials.actualDisbursedAmount !== null ? 'PKR ' + financials.actualDisbursedAmount.toLocaleString() : 'the cash in hand'} is worth repaying ${financials.totalRepaymentAmount !== null ? 'PKR ' + financials.totalRepaymentAmount.toLocaleString() : 'the required total'}.`,
         isCritical: true,
-        verificationTip: `Total cost of this loan is PKR ${financials.totalCostOfBorrowing.toLocaleString()}.`
+        verificationTip: financials.totalCostOfBorrowing !== null 
+          ? `Total cost of this loan is PKR ${financials.totalCostOfBorrowing.toLocaleString()}.`
+          : 'Calculate whether the net disbursed funds justify the overall repayment commitment.'
       },
       {
         id: 'ver-3',

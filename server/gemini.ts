@@ -100,12 +100,10 @@ export async function analyzeLoanWithAI(params: AnalyzeDocumentParams): Promise<
   let finalPermissionsList: PermissionType[] = [];
   let devicePermissionsSpecified = false;
 
-  if (userSelectedPerms.length > 0) {
+  const combinedPerms = Array.from(new Set([...userSelectedPerms, ...aiExtractedPerms])) as PermissionType[];
+  if (combinedPerms.length > 0) {
     devicePermissionsSpecified = true;
-    finalPermissionsList = userSelectedPerms;
-  } else if (extractedData.devicePermissionsSpecified === true && aiExtractedPerms.length > 0) {
-    devicePermissionsSpecified = true;
-    finalPermissionsList = aiExtractedPerms;
+    finalPermissionsList = combinedPerms;
   } else {
     devicePermissionsSpecified = false;
     finalPermissionsList = [];

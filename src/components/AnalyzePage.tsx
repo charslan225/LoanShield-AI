@@ -187,7 +187,7 @@ Data Privacy: In accordance with SECP Circular No. 15, no phonebook or photo sto
       manualMarkupRateAnnual: manualMarkupRateAnnual ? parseFloat(manualMarkupRateAnnual) : undefined,
       manualUpfrontDeductions: manualUpfrontDeductions ? parseFloat(manualUpfrontDeductions) : undefined,
       manualChargesDescription,
-      requestedPermissions: method === 'MANUAL_ENTRY' ? selectedPermissions : []
+      requestedPermissions: selectedPermissions
     });
   };
 

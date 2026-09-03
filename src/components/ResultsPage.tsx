@@ -42,6 +42,7 @@ import {
 } from 'recharts';
 import { AnalysisResult, LanguageCode } from '../types';
 import { useLanguage } from '../utils/LanguageContext';
+import { generateLoanAuditPdf } from '../utils/pdfGenerator';
 
 interface ResultsPageProps {
   analysis: AnalysisResult;
@@ -57,6 +58,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   onNewAnalysis
 }) => {
   const { t, isUrdu, isRtl } = useLanguage();
+  const [viewMode, setViewMode] = useState<'simple' | 'detailed'>('simple');
   const [activeTab, setActiveTab] = useState<'overview' | 'promise_vs_reality' | 'financials' | 'clauses' | 'privacy' | 'checklist'>('overview');
   
   // Clause category filter
@@ -122,6 +124,10 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = () => {
+    generateLoanAuditPdf(analysis);
   };
 
   const risk = analysis.riskAssessment || {} as any;
@@ -231,31 +237,314 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center flex-wrap gap-2">
+        {/* Action Buttons & View Mode Switcher */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-[#181818] p-1 rounded-xl border border-[#2a2a2a]">
+            <button
+              id="btn-view-mode-simple"
+              onClick={() => setViewMode('simple')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                viewMode === 'simple'
+                  ? 'bg-[#FF6321] text-black shadow-xs'
+                  : 'text-[#888888] hover:text-white'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{t.results.simpleViewMode}</span>
+            </button>
+            <button
+              id="btn-view-mode-detailed"
+              onClick={() => setViewMode('detailed')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                viewMode === 'detailed'
+                  ? 'bg-[#FF6321] text-black shadow-xs'
+                  : 'text-[#888888] hover:text-white'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{t.results.detailedViewMode}</span>
+            </button>
+          </div>
+
           <button
             id="btn-ask-advisor-drawer"
             onClick={() => setAdvisorOpen(true)}
-            className="px-4 py-2 rounded-xl bg-[#FF6321] hover:bg-[#ff773d] text-black text-xs font-bold shadow-xs transition-colors flex items-center space-x-1.5"
+            className="px-3.5 py-2 rounded-xl bg-[#222222] hover:bg-[#2c2c2c] text-white text-xs font-bold border border-[#333333] shadow-xs transition-colors flex items-center space-x-1.5"
           >
-            <MessageSquare className="w-3.5 h-3.5 stroke-[2.5]" />
+            <MessageSquare className="w-3.5 h-3.5 text-[#FF6321]" />
             <span>{t.results.askAdvisor}</span>
+          </button>
+
+          <button
+            id="btn-download-pdf-report"
+            onClick={handleDownloadPdf}
+            className="px-3.5 py-2 rounded-xl border border-[#FF6321]/40 bg-[#FF6321]/15 hover:bg-[#FF6321]/25 text-[#FF6321] text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1.5"
+          >
+            <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>{t.results.downloadPdfReport}</span>
           </button>
 
           <button
             id="btn-print-report"
             onClick={handlePrint}
-            className="px-3.5 py-2 rounded-xl border border-[#2b2b2b] bg-[#161616] hover:bg-[#202020] text-[#E0E0E0] text-xs font-semibold shadow-2xs transition-colors flex items-center space-x-1.5"
+            className="px-3.5 py-2 rounded-xl border border-[#2b2b2b] bg-[#161616] hover:bg-[#202020] text-[#A0A0A0] hover:text-white text-xs font-semibold shadow-2xs transition-colors flex items-center space-x-1.5"
           >
-            <Printer className="w-3.5 h-3.5 text-[#888888]" />
-            <span>{t.results.printPdf}</span>
+            <Printer className="w-3.5 h-3.5" />
           </button>
         </div>
 
       </div>
 
-      {/* 2. OVERALL RISK ASSESSMENT HERO CARD (0-100 EXPLAINABLE GAUGE) */}
-      <div className={`rounded-2xl border-2 ${riskColors.border} bg-[#111111] shadow-md overflow-hidden`}>
+      {/* 2. MAIN BODY CONDITIONAL: SIMPLE 5-SEC VERDICT vs DETAILED LEGAL AUDIT */}
+      {viewMode === 'simple' ? (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          
+          {/* A. 5-SECOND VERDICT BANNER */}
+          <div className={`rounded-2xl border-2 p-6 sm:p-7 shadow-lg transition-all ${
+            risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+              ? 'bg-rose-950/30 border-rose-600/80'
+              : risk.riskLevel === 'MODERATE'
+              ? 'bg-amber-950/30 border-amber-600/80'
+              : 'bg-emerald-950/30 border-emerald-600/80'
+          }`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                    risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+                      : risk.riskLevel === 'MODERATE'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                  }`}>
+                    {(risk.riskLevel || 'HIGH').replace('_', ' ')} RISK
+                  </span>
+                  <span className="text-xs text-[#999999] font-medium">
+                    Risk Score: <strong className="text-white">{risk.overallScore || 0} / 100</strong>
+                  </span>
+                  {fin.durationDays && fin.durationDays < 30 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-950 text-rose-400 border border-rose-800">
+                      SECP Non-Compliant
+                    </span>
+                  )}
+                </div>
+
+                <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                  risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                    ? 'text-rose-400'
+                    : risk.riskLevel === 'MODERATE'
+                    ? 'text-amber-400'
+                    : 'text-emerald-400'
+                }`}>
+                  {risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                    ? `🛑 ${t.results.verdictDoNotBorrow}`
+                    : risk.riskLevel === 'MODERATE'
+                    ? `⚠️ ${t.results.verdictProceedWithCaution}`
+                    : `✅ ${t.results.verdictSafeRegulated}`}
+                </h2>
+
+                <p className="text-xs sm:text-sm text-[#CCCCCC] max-w-2xl leading-relaxed">
+                  {risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                    ? t.results.verdictSubtitleDanger
+                    : risk.riskLevel === 'MODERATE'
+                    ? t.results.verdictSubtitleCaution
+                    : t.results.verdictSubtitleSafe}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0">
+                <button
+                  id="btn-simple-download-pdf"
+                  onClick={handleDownloadPdf}
+                  className="px-4 py-2.5 rounded-xl bg-[#FF6321] hover:bg-[#ff763b] text-black font-bold text-xs flex items-center justify-center space-x-2 shadow-xs transition-colors"
+                >
+                  <Download className="w-4 h-4 stroke-[2.5]" />
+                  <span>{t.results.downloadPdfReport}</span>
+                </button>
+                <button
+                  id="btn-simple-ask-advisor"
+                  onClick={() => setAdvisorOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-[#1e1e1e] hover:bg-[#282828] text-[#E0E0E0] border border-[#2f2f2f] text-xs font-semibold flex items-center justify-center space-x-2 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#FF6321]" />
+                  <span>{t.results.askAdvisor}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* B. THE 3 FINANCIAL REALITIES (SACHAI VS DAWA) */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#888888] flex items-center space-x-2">
+              <Calculator className="w-3.5 h-3.5 text-[#FF6321]" />
+              <span>{t.results.keyTruthNumbers}</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Net Cash Received */}
+              <div className="p-5 rounded-2xl bg-[#131313] border border-[#262626] space-y-2">
+                <span className="text-[11px] font-bold text-[#888888] uppercase tracking-wider">
+                  1. {t.results.receivedCashLabel}
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-emerald-400">
+                  PKR {(fin.actualDisbursedAmount !== null && fin.actualDisbursedAmount !== undefined ? fin.actualDisbursedAmount.toLocaleString() : (fin.principalAmount || 0).toLocaleString())}
+                </div>
+                <p className="text-xs text-[#888888]">
+                  Sanctioned: PKR {(fin.principalAmount || 0).toLocaleString()} • Upfront Cut: <span className="text-rose-400 font-semibold">PKR {(fin.totalDeductions || 0).toLocaleString()}</span>
+                </p>
+              </div>
+
+              {/* Card 2: Total Repayment */}
+              <div className="p-5 rounded-2xl bg-[#131313] border border-[#262626] space-y-2">
+                <span className="text-[11px] font-bold text-[#888888] uppercase tracking-wider">
+                  2. {t.results.repayCashLabel}
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-white">
+                  PKR {(fin.totalRepaymentAmount !== null && fin.totalRepaymentAmount !== undefined ? fin.totalRepaymentAmount.toLocaleString() : 'N/A')}
+                </div>
+                <p className="text-xs text-[#888888]">
+                  Extra Cost: <span className="text-amber-400 font-semibold">PKR {(fin.totalCostOfBorrowing || 0).toLocaleString()}</span> • True APR: <span className="text-white font-bold">{fin.effectiveAnnualPercentageRate || 0}%</span>
+                </p>
+              </div>
+
+              {/* Card 3: Tenure Days */}
+              <div className="p-5 rounded-2xl bg-[#131313] border border-[#262626] space-y-2">
+                <span className="text-[11px] font-bold text-[#888888] uppercase tracking-wider">
+                  3. {t.results.tenureLabel}
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-white flex items-center space-x-2">
+                  <span>{fin.durationDays || 'N/A'} Days</span>
+                  {fin.durationDays && fin.durationDays < 30 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 font-bold">
+                      Illegal
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#888888]">
+                  {fin.durationDays && fin.durationDays < 30
+                    ? 'SECP Circular 10 mandates at least 30 days minimum duration for digital bullet loans.'
+                    : 'Standard contract repayment duration.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* C. CRITICAL RED FLAGS & REGULATORY HELP DIRECTORY */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            
+            {/* Critical Red Flags */}
+            <div className="p-5 rounded-2xl bg-[#131313] border border-[#262626] space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center space-x-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>{t.results.topWarningsTitle}</span>
+              </h4>
+              <ul className="space-y-2 text-xs text-[#D0D0D0]">
+                {primaryReasons.slice(0, 3).map((rf: string, idx: number) => (
+                  <li key={idx} className="flex items-start space-x-2 bg-[#1a1a1a] p-2.5 rounded-xl border border-[#292929]">
+                    <span className="text-rose-400 font-black text-sm leading-none">•</span>
+                    <span className="leading-relaxed">{rf}</span>
+                  </li>
+                ))}
+                {permissionsList.some(p => p.requested && (p.permission === 'CONTACTS' || p.permission === 'STORAGE_GALLERY')) && (
+                  <li className="flex items-start space-x-2 bg-rose-950/30 p-2.5 rounded-xl border border-rose-900/50 text-rose-200">
+                    <span className="text-rose-400 font-black text-sm leading-none">⚠️</span>
+                    <span className="leading-relaxed font-semibold">
+                      Blackmail Risk: This lender accesses Contacts / Storage. SECP prohibits contact scraping for debt recovery.
+                    </span>
+                  </li>
+                )}
+                {fin.durationDays && fin.durationDays < 30 && (
+                  <li className="flex items-start space-x-2 bg-rose-950/30 p-2.5 rounded-xl border border-rose-900/50 text-rose-200">
+                    <span className="text-rose-400 font-black text-sm leading-none">🚫</span>
+                    <span className="leading-relaxed font-semibold">
+                      Illegal 7/14 Day Bullet Loan: Direct violation of SECP Circular 10 minimum 30-day requirement.
+                    </span>
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            {/* Official Complaint Channels */}
+            <div className="p-5 rounded-2xl bg-[#131313] border border-[#262626] space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center space-x-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Official Consumer Protection Channels</span>
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-[#181818] border border-[#262626] flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-white block">SECP Helpline (Toll-Free)</span>
+                    <span className="text-[11px] text-[#888888]">Report predatory lending or illegal apps</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-[#FF6321] px-2.5 py-1 bg-[#252525] rounded-lg">
+                    0800-88008
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[#181818] border border-[#262626] flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-white block">FIA Cybercrime Wing</span>
+                    <span className="text-[11px] text-[#888888]">Report blackmail or phonebook harassment</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-rose-400 px-2.5 py-1 bg-[#252525] rounded-lg">
+                    1991
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-[#181818] border border-[#262626] flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-white block">SECP SDMS Grievance Portal</span>
+                    <span className="text-[11px] text-[#888888]">Official online dispute & complaint filing</span>
+                  </div>
+                  <a 
+                    href="https://sdms.secp.gov.pk" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-blue-400 hover:underline px-2.5 py-1 bg-[#252525] rounded-lg"
+                  >
+                    sdms.secp.gov.pk
+                  </a>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* D. TOGGLE TO DETAILED TECHNICAL AUDIT */}
+          <div className="pt-2 text-center">
+            <button
+              id="btn-switch-to-detailed-audit"
+              onClick={() => setViewMode('detailed')}
+              className="w-full py-4 px-6 rounded-2xl bg-[#181818] hover:bg-[#202020] border border-[#2e2e2e] hover:border-[#FF6321]/50 text-white font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center justify-center space-x-2 group"
+            >
+              <FileText className="w-4 h-4 text-[#FF6321]" />
+              <span>{t.results.viewFullAuditBtn}</span>
+              <span className="text-[#888888] group-hover:translate-x-1 transition-transform">→</span>
+            </button>
+          </div>
+
+        </div>
+      ) : (
+        <div className="space-y-8 animate-in fade-in duration-300">
+          
+          {/* Detailed Mode Header Banner */}
+          <div className="p-4 rounded-xl bg-[#141414] border border-[#282828] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5 text-xs text-[#A0A0A0]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF6321] animate-pulse shrink-0"></span>
+              <span><strong>Regulatory & Evidence Mode:</strong> 7-Factor explainable breakdown, SECP compliance audit, clause filters & privacy telemetry.</span>
+            </div>
+            <button
+              onClick={() => setViewMode('simple')}
+              className="px-3.5 py-1.5 rounded-lg bg-[#202020] hover:bg-[#282828] text-white text-xs font-semibold border border-[#333333] flex items-center space-x-1.5 shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{t.results.backToSimpleBtn}</span>
+            </button>
+          </div>
+
+          {/* 2. OVERALL RISK ASSESSMENT HERO CARD (0-100 EXPLAINABLE GAUGE) */}
+          <div className={`rounded-2xl border-2 ${riskColors.border} bg-[#111111] shadow-md overflow-hidden`}>
         <div className="p-6 sm:p-8">
           
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -1338,6 +1627,9 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             </div>
 
           </div>
+
+        </div>
+      )}
 
         </div>
       )}

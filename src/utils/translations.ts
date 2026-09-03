@@ -100,6 +100,22 @@ export interface TranslationDictionary {
     auditId: string;
     askAdvisor: string;
     printPdf: string;
+    downloadPdfReport: string;
+    simpleViewMode: string;
+    detailedViewMode: string;
+    verdictDoNotBorrow: string;
+    verdictProceedWithCaution: string;
+    verdictSafeRegulated: string;
+    verdictSubtitleDanger: string;
+    verdictSubtitleCaution: string;
+    verdictSubtitleSafe: string;
+    keyTruthNumbers: string;
+    receivedCashLabel: string;
+    repayCashLabel: string;
+    tenureLabel: string;
+    topWarningsTitle: string;
+    viewFullAuditBtn: string;
+    backToSimpleBtn: string;
     riskScoreTitle: string;
     riskScoreSubtitle: string;
     tabOverview: string;
@@ -244,6 +260,22 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
       auditId: "Audit ID",
       askAdvisor: "Ask AI Advisor",
       printPdf: "Print / PDF",
+      downloadPdfReport: "Download PDF",
+      simpleViewMode: "5-Sec Verdict",
+      detailedViewMode: "Detailed Legal Audit",
+      verdictDoNotBorrow: "DO NOT TAKE THIS LOAN",
+      verdictProceedWithCaution: "PROCEED WITH CAUTION",
+      verdictSafeRegulated: "FAIR & REGULATED LOAN",
+      verdictSubtitleDanger: "Critical violations and predatory terms detected. Taking this loan puts you at extreme risk of debt traps and personal harassment.",
+      verdictSubtitleCaution: "Noticeable hidden fees or tenure issues found. Review the breakdown carefully before agreeing.",
+      verdictSubtitleSafe: "Complies with standard digital lending parameters. Transparent disclosures with no dangerous mobile permissions.",
+      keyTruthNumbers: "The 3 Financial Realities (Sachai)",
+      receivedCashLabel: "You Will Receive (Net)",
+      repayCashLabel: "You Must Pay Back",
+      tenureLabel: "Time Given To Pay",
+      topWarningsTitle: "Critical Red Flags You Must Know",
+      viewFullAuditBtn: "View Full Technical & Legal Audit (For SECP / Evidence)",
+      backToSimpleBtn: "Back to 5-Second Simple Verdict",
       riskScoreTitle: "LoanShield Risk Assessment",
       riskScoreSubtitle: "Explainable 0-100 risk score based on financial transparency and regulatory compliance.",
       tabOverview: "Audit Overview",
@@ -385,6 +417,22 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
       auditId: "آڈٹ آئی ڈی",
       askAdvisor: "AI مشیر سے پوچھیں",
       printPdf: "پرنٹ / پی ڈی ایف",
+      downloadPdfReport: "پی ڈی ایف ڈاؤنلوڈ",
+      simpleViewMode: "فوری خلاصہ (5 سیکنڈ)",
+      detailedViewMode: "مکمل قانونی آڈٹ",
+      verdictDoNotBorrow: "یہ قرض ہرگز مت لیں!",
+      verdictProceedWithCaution: "احتیاط کے ساتھ آگے بڑھیں",
+      verdictSafeRegulated: "شفاف اور ریگولیٹڈ قرض",
+      verdictSubtitleDanger: "انتہائی خطرناک شرائط اور SECP کی خلاف ورزیاں پائی گئیں۔ یہ قرض بلیک میلنگ اور قرض کے جال کا سبب بن سکتا ہے۔",
+      verdictSubtitleCaution: "پوشیدہ فیس یا مدت کے مسائل پائے گئے۔ دستخط کرنے سے پہلے تمام شرائط بغور پڑھیں۔",
+      verdictSubtitleSafe: "معیاری اور قانونی قرض کی شرائط۔ کوئی جارحانہ موبائل پرمیشنز یا چھپی ہوئی فیس نہیں ہے۔",
+      keyTruthNumbers: "3 بنیادی حقائق (سچائی)",
+      receivedCashLabel: "آپ کو ملیں گے (اصل کیش)",
+      repayCashLabel: "واپس کرنے ہوں گے",
+      tenureLabel: "واپسی کی کل مدت",
+      topWarningsTitle: "اہم ترین انتباہات جو جاننا ضروری ہیں",
+      viewFullAuditBtn: "مکمل قانونی اور تکنیکی آڈٹ دیکھیں (ثبوت و عدالت کے لیے)",
+      backToSimpleBtn: "فوری خلاصے پر واپس جائیں",
       riskScoreTitle: "لون شیلڈ رسک اسسمنٹ",
       riskScoreSubtitle: "شفافیت اور قانونی ضوابط پر مبنی 0 سے 100 کا رسک اسکور۔",
       tabOverview: "آڈٹ خلاصہ",
@@ -526,6 +574,22 @@ export const translations: Record<LanguageCode, TranslationDictionary> = {
       auditId: "Audit ID",
       askAdvisor: "AI Advisor Se Poochein",
       printPdf: "Print / PDF",
+      downloadPdfReport: "Download PDF",
+      simpleViewMode: "5-Sec Verdict",
+      detailedViewMode: "Detailed Legal Audit",
+      verdictDoNotBorrow: "YEH LOAN HARGEZ MAT LEIN!",
+      verdictProceedWithCaution: "AHTIYAAT SE AAGAY BARHEIN",
+      verdictSafeRegulated: "MEHFOOZ AUR SHAFAAF LOAN",
+      verdictSubtitleDanger: "Intehai khatarnak terms aur SECP violations pakri gayin. Yeh loan debt trap aur personal harassment ka sabab ban sakta hai.",
+      verdictSubtitleCaution: "Chupai hui fees ya muddat ke masail hain. Agreement sign karne se pehle achi tarah check karein.",
+      verdictSubtitleSafe: "Complies with standard digital lending rules. Transparent disclosures with no dangerous mobile permissions.",
+      keyTruthNumbers: "3 Bunyaadi Haqaiq (Sachai)",
+      receivedCashLabel: "Aap Ko Milenge (Net Cash)",
+      repayCashLabel: "Wapas Dene Honge",
+      tenureLabel: "Wapsi Ki Muddat",
+      topWarningsTitle: "Zaroori Baatein Jo Jan-na Lazmi Hain",
+      viewFullAuditBtn: "Mukammal Legal & Technical Audit Dekhein (SECP / Evidence ke liye)",
+      backToSimpleBtn: "5-Second Simple Verdict Par Wapas Aayein",
       riskScoreTitle: "LoanShield Risk Assessment",
       riskScoreSubtitle: "Transparency aur legal compliance par mabni 0 se 100 ka risk score.",
       tabOverview: "Audit Overview",

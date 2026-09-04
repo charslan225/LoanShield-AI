@@ -1,4 +1,5 @@
 import uuid
+import bcrypt
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
@@ -29,17 +30,27 @@ class StorageManager:
 
     def create_user(self, name: str, email: str, password: Optional[str] = None) -> Dict[str, Any]:
         user_id = str(uuid.uuid4())
+        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("utf-8") if password else ""
         user = {
             "id": user_id,
             "name": name,
             "email": email.lower(),
-            "password": password or "",
+            "password": hashed,
             "createdAt": datetime.utcnow().isoformat() + "Z"
         }
         self.users[email.lower()] = user
         return user
 
+    def verify_password(self, plain: str, hashed: str) -> bool:
+        if not hashed:
+            return False
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+
     def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         return self.users.get(email.lower())
+
+    def seed_demo_data(self):
+        if not self.get_user_by_email("ali.khan@example.com"):
+            self.create_user("Ali Khan", "ali.khan@example.com", "demopassword123")
 
 storage = StorageManager()

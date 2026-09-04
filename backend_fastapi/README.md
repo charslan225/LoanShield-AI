@@ -1,63 +1,63 @@
-# 🛡️ LoanShield AI - Python FastAPI Backend
+# LoanShield AI - FastAPI Backend
 
-FastAPI پر مبنی مکمل بیک اینڈ سروس جو لون ایگریمنٹس، ہائی رسک ٹرمز، SECP ریگولیٹری رولز (Circular 10, 15, 22)، اور ہڈن فیس کو اینالائز کرتی ہے۔
+Primary backend service built with Python FastAPI. Handles loan agreement analysis, risk scoring, SECP regulatory checks (Circular 10, 15, 22), hidden fee detection, and user authentication with bcrypt password hashing.
 
 ---
 
-## 🚀 Quick Setup & Run (چلانے کا طریقہ)
+## Quick Setup
 
-### 1. Create Python Virtual Environment (ورچوئل انوائرمنٹ بنائیں)
+### 1. Virtual Environment
 ```bash
-# Navigate to backend folder
 cd backend_fastapi
-
-# Create venv
 python3 -m venv venv
-
-# Activate venv
 # Linux / macOS:
 source venv/bin/activate
 # Windows:
 venv\Scripts\activate
 ```
 
-### 2. Install Dependencies (لائبریریز انسٹال کریں)
+### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Setup Environment Variables (انوائرمنٹ ویری ایبل)
+### 3. Environment Variables
 ```bash
-cp .env.example .env
-# .env فائل میں اپنی مفت Gemini API Key ڈالیں
+cp ../.env.example ../.env
+# Add your Gemini API key to .env
 ```
 
-### 4. Run FastAPI Server (سرور اسٹارٹ کریں)
+### 4. Run Server
 ```bash
 uvicorn main:app --reload --port 8000
 ```
 
 ---
 
-## 📖 Interactive API Documentation (Swagger UI)
-جب سرور چل پڑے، تو براؤزر میں یہ لنکس کھولیں:
-- **Interactive Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc UI:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **Health Check:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
-
----
-
-## 📡 API Endpoints Overview
+## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/health` | Server health check |
-| `GET` | `/api/demo-scenarios` | Preloaded sample scenarios |
-| `POST` | `/api/analyze/upload` | Analyze Document / Contract (PDF, Image, Text) |
-| `POST` | `/api/analyze/manual` | Calculate loan breakdown & APR manually |
-| `GET` | `/api/analysis/{id}` | Fetch detailed analysis results |
-| `GET` | `/api/analysis-history` | View history of analyzed agreements |
-| `DELETE` | `/api/analysis/{id}` | Delete an analysis record |
-| `POST` | `/api/ask-advisor` | Ask AI Legal & Lending Advisor questions |
+| `GET` | `/api/demo-scenarios` | Preloaded demo scenarios |
+| `POST` | `/api/analyze/upload` | Analyze document/contract (PDF, image, text) |
+| `POST` | `/api/analyze/manual` | Calculate loan breakdown manually |
+| `GET` | `/api/analysis/{id}` | Fetch analysis result |
+| `GET` | `/api/analysis-history` | View analysis history |
+| `DELETE` | `/api/analysis/{id}` | Delete an analysis |
+| `POST` | `/api/ask-advisor` | AI legal & lending advisor chat |
 | `POST` | `/api/auth/signup` | Register new user |
 | `POST` | `/api/auth/login` | Login user |
+
+### Interactive Docs
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+---
+
+## Key Features
+- **Rate limiting**: 10 requests/minute on upload endpoints (via Slowapi)
+- **Password hashing**: bcrypt via Passlib
+- **Body size limit**: 25MB max for base64 uploads
+- **Demo data seeding**: Auto-creates demo user and scenarios on startup
+- **Email validation**: Pydantic field validators on auth endpoints

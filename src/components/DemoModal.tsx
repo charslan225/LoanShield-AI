@@ -73,8 +73,8 @@ export const DemoModal: React.FC<DemoModalProps> = ({
 
                 <div className="p-2.5 rounded-xl bg-[#181818] border border-[#262626] text-[11px] flex justify-between text-[#888888]">
                   <span>Advertised: <strong className="text-white">PKR {scenario.resultData.financialBreakdown.advertisedAmount?.toLocaleString()}</strong></span>
-                  <span>Net Disbursed: <strong className="text-emerald-400">PKR {scenario.resultData.financialBreakdown.actualDisbursedAmount.toLocaleString()}</strong></span>
-                  <span>Deductions: <strong className="text-rose-400">PKR {scenario.resultData.financialBreakdown.totalDeductions.toLocaleString()}</strong></span>
+                  <span>Net Disbursed: <strong className="text-emerald-400">PKR {scenario.resultData.financialBreakdown.actualDisbursedAmount?.toLocaleString() ?? 'N/A'}</strong></span>
+                  <span>Deductions: <strong className="text-rose-400">PKR {scenario.resultData.financialBreakdown.totalDeductions?.toLocaleString() ?? 'N/A'}</strong></span>
                 </div>
               </div>
             );

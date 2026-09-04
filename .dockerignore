@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+__pycache__
+*.pyc
+.venv
+venv
+.env
+.env.*
+!.env.example
+coverage
+.github
+*.md

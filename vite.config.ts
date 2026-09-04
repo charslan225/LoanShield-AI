@@ -67,17 +67,25 @@ function aistudioMediaPlugin(): Plugin {
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8000',
+          changeOrigin: true,
+        },
+      },
     },
   };
 });

@@ -72,23 +72,78 @@ Translates complex legal boilerplate into three accessible formats:
 
 ---
 
-## 🛠️ Tech Stack & Environment
+## Tech Stack & Environment
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Recharts
-- **Backend**: Node.js, Express, tsx, esbuild
-- **AI Intelligence**: Google Gemini 3.7 Flash (`@google/genai`)
+- **Frontend**: React 19, TypeScript (strict mode), Tailwind CSS v4, Lucide Icons, Recharts, React Router v7
+- **Backend**: Python 3.11, FastAPI, Uvicorn, Passlib (bcrypt), Slowapi (rate limiting)
+- **AI Intelligence**: Google Gemini (`@google/genai`)
+- **Testing**: Vitest, @testing-library/react
 - **Typography**: Plus Jakarta Sans, Noto Nastaliq Urdu, JetBrains Mono
 
 ---
 
-## 🔐 Environment Variables
+## Development Setup
 
+### Prerequisites
+- Node.js 20+
+- Python 3.11+
+
+### Frontend (Vite dev server)
+```bash
+npm install
+npm run dev          # starts Vite on port 5173
+```
+Vite proxies `/api` requests to the FastAPI backend at `http://127.0.0.1:8000`.
+
+### Backend (FastAPI)
+```bash
+cd backend_fastapi
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### Environment Variables
 Create a `.env` file based on `.env.example`:
-
 ```env
-# Google Gemini API Key (Server-side only)
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+---
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Production build to `dist/` |
+| `npm run lint` | TypeScript type checking (strict mode) |
+| `npm test` | Run unit tests |
+| `npm run test:watch` | Run tests in watch mode |
+
+---
+
+## Docker
+
+```bash
+# Build and run
+docker compose up --build
+
+# Or build manually
+docker build -t loanshield-ai .
+docker run -p 8000:8000 -e GEMINI_API_KEY=your_key loanshield-ai
+```
+The container serves both the frontend SPA and the FastAPI backend on port 8000.
+
+---
+
+## API Documentation
+
+When the FastAPI server is running:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/api/health
 
 ---
 

@@ -369,11 +369,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#888888]">Actual Disbursed:</span>
-                      <span className="font-bold text-emerald-400">PKR {scenario.resultData.financialBreakdown.actualDisbursedAmount.toLocaleString()}</span>
+                      <span className="font-bold text-emerald-400">PKR {scenario.resultData.financialBreakdown.actualDisbursedAmount?.toLocaleString() ?? 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#888888]">Total Deductions:</span>
-                      <span className="font-semibold text-rose-400">PKR {scenario.resultData.financialBreakdown.totalDeductions.toLocaleString()}</span>
+                      <span className="font-semibold text-rose-400">PKR {scenario.resultData.financialBreakdown.totalDeductions?.toLocaleString() ?? 'N/A'}</span>
                     </div>
                   </div>
                 </div>

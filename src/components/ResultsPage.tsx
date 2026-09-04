@@ -144,6 +144,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
   const filteredClauses = clauseCategoryFilter === 'ALL' 
     ? clausesList 
     : clausesList.filter(c => c.category === clauseCategoryFilter);
+  const isDangerRisk = ['CRITICAL', 'VERY_HIGH', 'HIGH'].includes(risk.riskLevel);
 
   const getRiskColorClasses = (level: string) => {
     switch (level) {
@@ -171,6 +172,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
           lightBg: 'bg-[#FF6321]/10',
           text: 'text-[#FF6321]'
         };
+      case 'CRITICAL':
       case 'VERY_HIGH':
       default:
         return {
@@ -302,7 +304,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
           
           {/* A. 5-SECOND VERDICT BANNER */}
           <div className={`rounded-2xl border-2 p-6 sm:p-7 shadow-lg transition-all ${
-            risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+            isDangerRisk
               ? 'bg-rose-950/30 border-rose-600/80'
               : risk.riskLevel === 'MODERATE'
               ? 'bg-amber-950/30 border-amber-600/80'
@@ -312,7 +314,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
               <div className="space-y-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
-                    risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                    isDangerRisk
                       ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
                       : risk.riskLevel === 'MODERATE'
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
@@ -331,13 +333,13 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                 </div>
 
                 <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${
-                  risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                  isDangerRisk
                     ? 'text-rose-400'
                     : risk.riskLevel === 'MODERATE'
                     ? 'text-amber-400'
                     : 'text-emerald-400'
                 }`}>
-                  {risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                  {isDangerRisk
                     ? `🛑 ${t.results.verdictDoNotBorrow}`
                     : risk.riskLevel === 'MODERATE'
                     ? `⚠️ ${t.results.verdictProceedWithCaution}`
@@ -345,7 +347,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
                 </h2>
 
                 <p className="text-xs sm:text-sm text-[#CCCCCC] max-w-2xl leading-relaxed">
-                  {risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'VERY_HIGH' || risk.riskLevel === 'HIGH'
+                  {isDangerRisk
                     ? t.results.verdictSubtitleDanger
                     : risk.riskLevel === 'MODERATE'
                     ? t.results.verdictSubtitleCaution
@@ -567,7 +569,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
 
               <div>
                 <h3 className="text-lg font-bold text-white">{risk.riskTitle || 'RISK ASSESSMENT'}</h3>
-                <p className="text-xs text-[#A0A0A0] leading-relaxed mt-1">{risk.riskDescription || risk.summaryReason || 'Analysis of financial terms and disclosure transparency.'}</p>
+                <p className="text-xs text-[#A0A0A0] leading-relaxed mt-1">{risk.summaryReason || 'Analysis of financial terms and disclosure transparency.'}</p>
               </div>
 
               <div className="w-full bg-[#1e1e1e] rounded-full h-3 overflow-hidden border border-[#2e2e2e]">
@@ -1176,11 +1178,11 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={financialBarData} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
-                  <XAxis type="number" tickFormatter={(v) => `PKR ${v.toLocaleString()}`} stroke="#666666" tick={{ fill: '#888888', fontSize: 11 }} />
+                  <XAxis type="number" tickFormatter={(v: number) => `PKR ${v.toLocaleString()}`} stroke="#666666" tick={{ fill: '#888888', fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" stroke="#666666" tick={{ fill: '#C5C5C5', fontSize: 12 }} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#181818', borderColor: '#2b2b2b', color: '#fff', borderRadius: '8px' }}
-                    formatter={(value: number) => [`PKR ${value.toLocaleString()}`, 'Amount']} 
+                    formatter={(value: unknown) => [`PKR ${Number(value).toLocaleString()}`, 'Amount']}
                   />
                   <Bar dataKey="amount" radius={[0, 8, 8, 0]}>
                     {financialBarData.map((entry, index) => (
@@ -1205,7 +1207,7 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({
               <div className="p-3 rounded-xl bg-[#161616] border border-[#242424]">
                 <span className="text-[#888888] block">Estimated Annualized APR:</span>
                 <span className="text-base font-extrabold text-amber-400">
-                  {fin.effectiveAnnualPercentageRate ? `${fin.effectiveAnnualPercentageRate.toFixed(1)}%` : (fin.estimatedAprPercent ? `${fin.estimatedAprPercent.toFixed(1)}%` : 'Undisclosed / High')}
+                  {fin.effectiveAnnualPercentageRate ? `${fin.effectiveAnnualPercentageRate.toFixed(1)}%` : 'Undisclosed / High'}
                 </span>
                 <span className="text-[11px] text-[#777777] block mt-0.5">
                   Based on {fin.durationDays || 30} day repayment cycle

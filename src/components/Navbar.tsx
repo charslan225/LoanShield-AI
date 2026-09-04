@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  Sparkles, 
-  History, 
-  Globe, 
-  User, 
-  LogOut, 
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  ShieldCheck,
+  Sparkles,
+  History,
+  Globe,
+  LogOut,
   ChevronDown
 } from 'lucide-react';
 import { LanguageCode, UserProfile } from '../types';
 import { useLanguage } from '../utils/LanguageContext';
 
 interface NavbarProps {
-  currentView: 'landing' | 'analyze' | 'results' | 'dashboard';
-  setCurrentView: (view: 'landing' | 'analyze' | 'results' | 'dashboard') => void;
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => void;
   user: UserProfile | null;
@@ -23,8 +21,6 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentView,
-  setCurrentView,
   language,
   setLanguage,
   user,
@@ -33,6 +29,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenDemo
 }) => {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = location.pathname;
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -48,12 +47,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#050505]/95 backdrop-blur-md border-b border-[#222] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          
-          {/* Logo & Tagline */}
-          <div 
+
+          <div
             id="nav-logo"
             className="flex items-center space-x-3 cursor-pointer group"
-            onClick={() => setCurrentView('landing')}
+            onClick={() => navigate('/')}
           >
             <div className="w-10 h-10 rounded-xl bg-[#FF6321] flex items-center justify-center text-black shadow-lg shadow-[#FF6321]/20 group-hover:scale-105 transition-transform duration-200">
               <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
@@ -73,13 +71,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Center Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             <button
               id="nav-btn-home"
-              onClick={() => setCurrentView('landing')}
+              onClick={() => navigate('/')}
               className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                currentView === 'landing'
+                currentPath === '/'
                   ? 'text-white bg-[#1A1A1A] border border-[#2a2a2a]'
                   : 'text-[#888888] hover:text-white hover:bg-[#111111]'
               }`}
@@ -88,9 +85,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             <button
               id="nav-btn-analyze"
-              onClick={() => setCurrentView('analyze')}
+              onClick={() => navigate('/analyze')}
               className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center space-x-1.5 ${
-                currentView === 'analyze'
+                currentPath === '/analyze'
                   ? 'text-[#FF6321] bg-[#FF6321]/10 border border-[#FF6321]/30'
                   : 'text-[#888888] hover:text-white hover:bg-[#111111]'
               }`}
@@ -100,9 +97,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             <button
               id="nav-btn-dashboard"
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => navigate('/dashboard')}
               className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center space-x-1.5 ${
-                currentView === 'dashboard'
+                currentPath === '/dashboard'
                   ? 'text-white bg-[#1A1A1A] border border-[#2a2a2a]'
                   : 'text-[#888888] hover:text-white hover:bg-[#111111]'
               }`}
@@ -120,10 +117,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Right Action Menu: Language & Auth */}
           <div className="flex items-center space-x-3">
-            
-            {/* Multilingual Selector */}
+
             <div className="relative">
               <button
                 id="nav-language-selector"
@@ -137,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
 
               {langMenuOpen && (
-                <div 
+                <div
                   className="absolute right-0 mt-2 w-44 bg-[#111111] rounded-xl shadow-2xl border border-[#222222] py-1.5 z-50 animate-in fade-in slide-in-from-top-1"
                   onMouseLeave={() => setLangMenuOpen(false)}
                 >
@@ -172,7 +167,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* User Account / Auth */}
             {user ? (
               <div className="relative">
                 <button
@@ -188,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
 
                 {userMenuOpen && (
-                  <div 
+                  <div
                     className="absolute right-0 mt-2 w-48 bg-[#111111] rounded-xl shadow-2xl border border-[#222222] py-1.5 z-50 animate-in fade-in slide-in-from-top-1"
                     onMouseLeave={() => setUserMenuOpen(false)}
                   >
@@ -197,7 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-[11px] text-[#888888] truncate">{user.email}</p>
                     </div>
                     <button
-                      onClick={() => { setCurrentView('dashboard'); setUserMenuOpen(false); }}
+                      onClick={() => { navigate('/dashboard'); setUserMenuOpen(false); }}
                       className="w-full text-left px-3.5 py-2 text-xs text-[#E0E0E0] hover:bg-[#1A1A1A] flex items-center space-x-2"
                     >
                       <History className="w-3.5 h-3.5 text-[#888888]" />

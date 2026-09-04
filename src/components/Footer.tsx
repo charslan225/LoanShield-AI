@@ -17,10 +17,10 @@ export const Footer: React.FC = () => {
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1">
-                {t.footer.disclaimerTitle}
+                Disclaimer
               </h4>
               <p className="text-xs leading-relaxed text-[#A0A0A0] font-normal">
-                {t.footer.disclaimerText}
+                {t.footer.disclaimer}
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+import re
 
 class LoanAnalysisRequest(BaseModel):
     method: Optional[str] = "AGREEMENT_UPLOAD"
@@ -38,12 +39,36 @@ class AuthSignUpRequest(BaseModel):
     email: str
     password: Optional[str] = None
 
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(pattern, v):
+            raise ValueError('Invalid email address format.')
+        return v.lower()
+
 class AuthLoginRequest(BaseModel):
     email: str
     password: Optional[str] = None
 
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(pattern, v):
+            raise ValueError('Invalid email address format.')
+        return v.lower()
+
 class AuthResetRequest(BaseModel):
     email: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(pattern, v):
+            raise ValueError('Invalid email address format.')
+        return v.lower()
 
 class LoanCharge(BaseModel):
     name: str
@@ -55,17 +80,20 @@ class LoanCharge(BaseModel):
     explanation: str
 
 class EssentialFinancialTerm(BaseModel):
+    id: str
     termName: str
-    status: str  # CLEARLY_SPECIFIED | PARTIALLY_SPECIFIED | NOT_SPECIFIED
-    details: str
+    status: str
+    documentedValue: Optional[str] = None
+    explanation: str
+    evidence: Optional[str] = None
 
 class FactorScore(BaseModel):
     name: str
     category: str
-    riskType: Optional[str] = "KNOWN_RISK"  # KNOWN_RISK | INFORMATION_GAP
+    riskType: Optional[str] = "KNOWN_RISK"
     score: float
     maxWeight: float
-    riskImpact: str  # LOW | MEDIUM | HIGH | CRITICAL
+    riskImpact: str
     finding: str
     evidence: Optional[str] = None
     interpretation: Optional[str] = None
@@ -103,7 +131,7 @@ class SECPViolation(BaseModel):
 
 class FinancialBreakdown(BaseModel):
     advertisedAmount: Optional[float] = None
-    principalAmount: float
+    principalAmount: Optional[float] = None
     totalDeductions: Optional[float] = None
     deductionStatus: Optional[str] = "NO_DEDUCTIONS"
     deductionStatusText: Optional[str] = "No upfront deductions identified"
@@ -114,7 +142,7 @@ class FinancialBreakdown(BaseModel):
     totalCostOfBorrowing: Optional[float] = None
     effectiveAnnualPercentageRate: Optional[float] = None
     effectiveMonthlyRate: Optional[float] = None
-    durationDays: int
+    durationDays: Optional[int] = None
     numberOfInstallments: int
     installmentAmount: Optional[float] = None
     chargesList: List[LoanCharge] = []

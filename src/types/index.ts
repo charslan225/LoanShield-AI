@@ -3,7 +3,7 @@
  * Consumer Protection & Financial Transparency Engine (Pakistan)
  */
 
-export type RiskLevel = 'LOW' | 'MODERATE' | 'HIGH' | 'VERY_HIGH';
+export type RiskLevel = 'LOW' | 'MODERATE' | 'HIGH' | 'VERY_HIGH' | 'CRITICAL';
 
 export type LanguageCode = 'en' | 'ur' | 'roman_ur';
 

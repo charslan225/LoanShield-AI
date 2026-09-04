@@ -32,13 +32,13 @@ def get_gemini_client():
 def call_gemini_rest_api(prompt: str, file_base64: Optional[str] = None, mime_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Direct Gemini API caller using Python standard library (urllib.request).
-    Supports gemini-3.1-flash-lite and gemini-flash-latest with multimodal file support.
+    Supports gemini-1.5-flash and gemini-2.0-flash-exp with multimodal file support.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return None
 
-    models = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"]
+    models = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash-exp"]
     
     parts: List[Dict[str, Any]] = []
     if file_base64 and mime_type:
@@ -80,13 +80,36 @@ def call_gemini_rest_api(prompt: str, file_base64: Optional[str] = None, mime_ty
 
     return None
 
-def calculate_apr(principal: float, net_disbursed: float, total_repayment: float, tenure_days: int) -> float:
+def safe_float(val: Any) -> Optional[float]:
+    if val is None:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def safe_int(val: Any) -> Optional[int]:
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def calculate_apr(principal: Optional[float], net_disbursed: Optional[float], total_repayment: Optional[float], tenure_days: Optional[int]) -> Optional[float]:
     """
     Computes Effective Annual Percentage Rate (APR) based on net received vs total repaid over tenure.
+    Returns None when any required value is missing or non-positive.
     """
+    if principal is None or net_disbursed is None or total_repayment is None or tenure_days is None:
+        return None
     if net_disbursed <= 0 or tenure_days <= 0:
-        return 0.0
+        return None
     total_cost = total_repayment - net_disbursed
+    if total_cost <= 0:
+        return 0.0
     period_rate = total_cost / net_disbursed
     annual_periods = 365.0 / tenure_days
     apr = period_rate * annual_periods * 100.0
@@ -103,8 +126,8 @@ async def analyze_loan_document(params: Dict[str, Any]) -> Dict[str, Any]:
     lender_name = params.get("lenderName") or "Digital Lending Entity"
     app_name = params.get("appName") or "Mobile Loan App"
     advertised_amount = params.get("advertisedAmount")
-    advertised_duration = params.get("advertisedDuration") or "30 Days"
-    advertised_rate = params.get("advertisedMarkupRate") or "0.1% daily"
+    advertised_duration = params.get("advertisedDuration") or "Not specified"
+    advertised_rate = params.get("advertisedMarkupRate") or "Not specified"
     expected_repayment = params.get("expectedRepayment")
     requested_perms = params.get("requestedPermissions") or []
 
@@ -119,18 +142,19 @@ async def analyze_loan_document(params: Dict[str, Any]) -> Dict[str, Any]:
     # Step 1: Call Gemini AI if API key is present
     if os.environ.get("GEMINI_API_KEY") and (raw_text or file_base64 or manual_principal):
         extraction_prompt = f"""You are LoanShield AI, an expert loan document analyst in Pakistan.
-Extract exact real numbers from this loan document or parameters.
+Read the document carefully and extract only values that are EXPLICITLY stated.
+CRITICAL: Do not infer, estimate, or hallucinate numbers. If a figure is not clearly stated (e.g., says "to be determined after approval" or "schedule provided after disbursement"), return null for that field.
 Fields to extract:
 - lenderName (string)
 - appName (string)
-- principal (exact approved/sanctioned loan amount number in PKR)
-- duration_days (tenure integer number of days, e.g. 7, 14, 30, 90)
-- upfront_deductions (total amount deducted before cashout, e.g. processing fee + service charge, number in PKR)
-- total_repayment (total repayment required, number in PKR)
-- markup_rate_annual (percentage number if stated)
-- charges (array of objects with name, amount, type: "UPFRONT_DEDUCTION")
+- principal (exact approved/sanctioned loan amount number in PKR; null if only an advertised/marketing amount is shown)
+- duration_days (tenure integer number of days explicitly stated; null if tenure or schedule is deferred)
+- upfront_deductions (total amount deducted before cashout if explicitly stated; null if not)
+- total_repayment (total repayment required if explicitly stated; null if deferred or schedule not provided)
+- markup_rate_annual (percentage number if explicitly stated; null if not)
+- charges (array of objects with name, amount, type: "UPFRONT_DEDUCTION"; empty if no explicit fees)
 - sensitive_permissions (array of permissions mentioned e.g. CONTACTS, CAMERA, LOCATION, STORAGE)
-- is_deferred_disbursement (boolean, true if document says "To be determined after approval")
+- is_deferred_disbursement (boolean, true if document defers disbursement, fees, or repayment schedule until after approval)
 
 Input Context:
 Advertised Amount: {advertised_amount}
@@ -141,51 +165,48 @@ Text:
 Return strictly a JSON object with these keys."""
         ai_data = call_gemini_rest_api(extraction_prompt, file_base64, file_mime_type)
 
-    # Step 2: Establish base figures from AI or robust regex parsing
-    principal = float(manual_principal or advertised_amount or 0.0)
-    duration_days = int(manual_duration or 0)
-    upfront_deductions = float(manual_upfront or 0.0) if manual_upfront is not None else 0.0
-    total_repayment = float(expected_repayment or 0.0)
-    charges_list = []
+    # Step 2: Establish base figures from manual overrides or deterministic regex parsing.
+    # Unknown values remain None; no synthetic defaults are applied.
+    # AI extraction is intentionally NOT trusted for numeric figures to avoid hallucinations;
+    # it is used only for entity names, permissions, and deferred-disbursement flags.
     text_lower = raw_text.lower()
+    principal = safe_float(manual_principal) if manual_principal is not None else None
+    duration_days = safe_int(manual_duration) if manual_duration is not None else None
+    upfront_deductions = safe_float(manual_upfront) if manual_upfront is not None else 0.0
+    total_repayment = safe_float(expected_repayment) if expected_repayment is not None else None
+    charges_list: List[Dict[str, Any]] = []
+
+    # Detect intentionally vague / deferred terms before any extraction.
+    is_disbursement_deferred = (
+        "to be determined after approval" in text_lower or
+        "disbursed to borrower" in text_lower and "after approval" in text_lower
+    )
+    is_repayment_deferred = (
+        is_disbursement_deferred or
+        "repayment schedule provided after" in text_lower or
+        "schedule provided after disbursement" in text_lower or
+        "repayment schedule" in text_lower and "after disbursement" in text_lower
+    )
 
     if ai_data:
-        if ai_data.get("principal") and not manual_principal:
-            try:
-                principal = float(ai_data["principal"])
-            except (ValueError, TypeError):
-                pass
-        if ai_data.get("duration_days") and not manual_duration:
-            try:
-                duration_days = int(ai_data["duration_days"])
-            except (ValueError, TypeError):
-                pass
-        if ai_data.get("upfront_deductions") is not None and manual_upfront is None:
-            try:
-                upfront_deductions = float(ai_data["upfront_deductions"])
-            except (ValueError, TypeError):
-                pass
-        if ai_data.get("total_repayment") and not expected_repayment:
-            try:
-                total_repayment = float(ai_data["total_repayment"])
-            except (ValueError, TypeError):
-                pass
+        # Only use AI for non-numeric context; ignore AI dollar/day figures.
         if ai_data.get("lenderName") and lender_name == "Digital Lending Entity":
             lender_name = ai_data["lenderName"]
         if ai_data.get("appName") and app_name == "Mobile Loan App":
             app_name = ai_data["appName"]
         if ai_data.get("sensitive_permissions") and not requested_perms:
             requested_perms = [p.upper() for p in ai_data["sensitive_permissions"]]
+        if ai_data.get("is_deferred_disbursement"):
+            is_disbursement_deferred = True
+            is_repayment_deferred = True
 
-    # Fallback to intelligent regex if figures are missing
-    if principal <= 0:
+    # Fallback to intelligent regex if figures are still missing
+    if principal is None:
         p_match = re.search(r'(?:approved|loan|sanction|limit|amount|borrow|principal|rs\.?|pkr)\s*[:=-]?\s*(?:pkr|rs\.?)?\s*([\d,]{4,})', text_lower)
         if p_match:
             principal = float(p_match.group(1).replace(',', ''))
-        else:
-            principal = 50000.0
 
-    if duration_days <= 0:
+    if duration_days is None:
         t_match = re.search(r'(?:tenure|duration|term|din|days)\s*[:=-]?\s*(\d+)\s*(?:days?|din)?', text_lower)
         if t_match:
             duration_days = int(t_match.group(1))
@@ -197,19 +218,19 @@ Return strictly a JSON object with these keys."""
             duration_days = 90
         elif "180 days" in text_lower or "6 months" in text_lower:
             duration_days = 180
-        else:
-            duration_days = 30
 
-    if upfront_deductions <= 0 and manual_upfront is None:
+    if (upfront_deductions is None or upfront_deductions <= 0) and manual_upfront is None:
         fee_match = re.search(r'(?:processing fee|service charge|deduction|fees?|katauti|cut)\s*[:=-]?\s*(?:pkr|rs\.?)?\s*([\d,]{3,})', text_lower)
         if fee_match:
             upfront_deductions = float(fee_match.group(1).replace(',', ''))
+        else:
+            upfront_deductions = 0.0
 
-    if upfront_deductions > 0:
+    if upfront_deductions and upfront_deductions > 0 and principal is not None and principal > 0:
         charges_list.append({
             "name": "Upfront Processing & Service Deduction",
             "amount": upfront_deductions,
-            "percentageOfPrincipal": round((upfront_deductions / principal) * 100, 2) if principal > 0 else 0,
+            "percentageOfPrincipal": round((upfront_deductions / principal) * 100, 2),
             "isDisclosedUpfront": True,
             "isLegitimateUnderSECP": upfront_deductions <= (principal * 0.05),
             "category": "PROCESSING_FEE",
@@ -220,36 +241,38 @@ Return strictly a JSON object with these keys."""
     deduction_status = "NO_DEDUCTIONS"
     deduction_status_text = "No upfront fee deductions declared."
     actual_disbursed = principal
-    is_disbursement_confirmed = True
+    is_disbursement_confirmed = principal is not None
 
-    if "to be determined after approval" in text_lower or (ai_data and ai_data.get("is_deferred_disbursement")):
+    if is_disbursement_deferred:
         is_disbursement_confirmed = False
         actual_disbursed = None
         deduction_status = "POTENTIAL_DEDUCTIONS_UNCLEAR"
         deduction_status_text = "Potential deductions are mentioned, but the exact amounts are not clearly specified."
-    elif upfront_deductions > 0:
+    elif upfront_deductions and upfront_deductions > 0 and principal is not None:
         actual_disbursed = max(0.0, principal - upfront_deductions)
         deduction_status = "CONFIRMED_DEDUCTIONS"
         deduction_status_text = f"PKR {upfront_deductions:,.0f} deducted upfront."
+    elif principal is None:
+        actual_disbursed = None
+        is_disbursement_confirmed = False
 
     # Step 4: Total Repayment & Markup
-    if total_repayment <= 0:
+    # When repayment is deferred, do not invent a total or tenure.
+    if is_repayment_deferred:
+        total_repayment = None
+        duration_days = None
+    elif total_repayment is None:
         rep_match = re.search(r'(?:total repayment|repayment amount|total payable|payable amount|wapis)\s*[:=-]?\s*(?:pkr|rs\.?)?\s*([\d,]+)', text_lower)
         if rep_match:
             total_repayment = float(rep_match.group(1).replace(',', ''))
-        elif manual_markup_annual:
+        elif manual_markup_annual and principal is not None and duration_days is not None:
             markup_amount = principal * (float(manual_markup_annual) / 100.0) * (duration_days / 365.0)
             total_repayment = principal + markup_amount
-        else:
-            markup_amount = principal * (0.02 * (duration_days / 30))
-            total_repayment = principal + markup_amount
+
+    is_repayment_confirmed = total_repayment is not None
 
     # Step 5: APR Calculation
-    if actual_disbursed and actual_disbursed > 0:
-        apr = calculate_apr(principal, actual_disbursed, total_repayment, duration_days)
-    else:
-        apr = calculate_apr(principal, principal, total_repayment, duration_days)
-        apr = calculate_apr(principal, principal, total_repayment, duration_days)
+    apr = calculate_apr(principal, actual_disbursed, total_repayment, duration_days)
 
     # 5. Permission Audits
     permission_audits = []
@@ -277,7 +300,7 @@ Return strictly a JSON object with these keys."""
             permission_audits.append({
                 "permission": perm,
                 "status": "STANDARD",
-                "riskLevel": "SAFE",
+                "riskLevel": "LOW",
                 "explanation": "Standard mobile OS permission.",
                 "secpViolation": False
             })
@@ -286,10 +309,21 @@ Return strictly a JSON object with these keys."""
     secp_violations = []
     if has_contact_violation:
         secp_violations.append(SECP_VIOLATION_DEFINITIONS["UNAUTHORIZED_CONTACTS_ACCESS"])
-    if upfront_deductions > (principal * 0.10):
+    if principal is not None and upfront_deductions > (principal * 0.10):
         secp_violations.append(SECP_VIOLATION_DEFINITIONS["EXCESSIVE_UPFRONT_DEDUCTIONS"])
-    if duration_days < 30:
+    if duration_days is not None and duration_days < 30:
         secp_violations.append(SECP_VIOLATION_DEFINITIONS["SHORT_TENURE_PREDATORY_TERM"])
+
+    # Track missing essential terms for information-gap scoring
+    missing_essential_terms = [
+        ("Sanctioned Principal Amount", principal),
+        ("Disbursement Amount", actual_disbursed),
+        ("Total Repayment Amount", total_repayment),
+        ("Loan Tenure & Due Date", duration_days),
+        ("Effective APR", apr)
+    ]
+    missing_key_terms_count = sum(1 for _, v in missing_essential_terms if v is None)
+    has_major_information_gap = missing_key_terms_count >= 2 or deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" or not is_disbursement_confirmed
 
     # 7. 7-Factor Risk Model Scoring (0 to 100 scale)
     factor_breakdown = [
@@ -297,9 +331,9 @@ Return strictly a JSON object with these keys."""
             "name": "Upfront Fee Deductions & Net Cashout",
             "category": "FINANCIAL_TRANSPARENCY",
             "riskType": "INFORMATION_GAP" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "KNOWN_RISK",
-            "score": 15 if deduction_status == "CONFIRMED_DEDUCTIONS" and upfront_deductions > 0 else (12 if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else 2),
+            "score": 18 if has_major_information_gap else (15 if deduction_status == "CONFIRMED_DEDUCTIONS" and upfront_deductions > 0 else (12 if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else 2)),
             "maxWeight": 20,
-            "riskImpact": "HIGH" if upfront_deductions > 0 or deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "LOW",
+            "riskImpact": "HIGH" if has_major_information_gap or upfront_deductions > 0 or deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "LOW",
             "finding": deduction_status_text,
             "evidence": "Loan schedule deduction clause in agreement",
             "interpretation": "Upfront cuts reduce actual received money while total repayment remains on full principal.",
@@ -308,24 +342,24 @@ Return strictly a JSON object with these keys."""
         {
             "name": "Effective Annual Percentage Rate (APR)",
             "category": "PRICING_USURY",
-            "riskType": "KNOWN_RISK",
-            "score": 18 if apr > 100 else (10 if apr > 40 else 3),
+            "riskType": "INFORMATION_GAP" if apr is None else "KNOWN_RISK",
+            "score": 18 if apr is None else (18 if apr > 100 else (10 if apr > 40 else 3)),
             "maxWeight": 20,
-            "riskImpact": "CRITICAL" if apr > 100 else ("HIGH" if apr > 40 else "LOW"),
-            "finding": f"Calculated effective APR of {apr}% annualized.",
-            "evidence": f"Repayment obligation PKR {total_repayment:,.0f} over {duration_days} days.",
+            "riskImpact": "HIGH" if apr is None else ("CRITICAL" if apr > 100 else ("HIGH" if apr > 40 else "LOW")),
+            "finding": "APR cannot be calculated: repayment or disbursement amount is not specified." if apr is None else f"Calculated effective APR of {apr}% annualized.",
+            "evidence": f"Repayment obligation PKR {total_repayment:,.0f} over {duration_days} days." if total_repayment is not None and duration_days is not None else "Total repayment or tenure not specified in document.",
             "interpretation": "Annualized percentage reflects true borrowing cost.",
             "confidenceLevel": "HIGH"
         },
         {
             "name": "Repayment Horizon & Tenure Risk",
             "category": "TENURE_SUITABILITY",
-            "riskType": "KNOWN_RISK",
-            "score": 15 if duration_days < 30 else 3,
+            "riskType": "INFORMATION_GAP" if duration_days is None else "KNOWN_RISK",
+            "score": 15 if duration_days is None else (15 if duration_days < 30 else 3),
             "maxWeight": 15,
-            "riskImpact": "HIGH" if duration_days < 30 else "LOW",
-            "finding": f"{duration_days}-day tenure ({'Violates 30-day SECP recommendation' if duration_days < 30 else 'Complies with standard term'}).",
-            "evidence": f"Tenure: {duration_days} days",
+            "riskImpact": "HIGH" if duration_days is None or duration_days < 30 else "LOW",
+            "finding": "Loan tenure is not specified in the document." if duration_days is None else f"{duration_days}-day tenure ({'Violates 30-day SECP recommendation' if duration_days < 30 else 'Complies with standard term'}).",
+            "evidence": f"Tenure: {duration_days} days" if duration_days is not None else "No explicit tenure or due-date found.",
             "interpretation": "Shorter loan horizons increase risk of rollover penalties.",
             "confidenceLevel": "HIGH"
         },
@@ -380,17 +414,21 @@ Return strictly a JSON object with these keys."""
     ]
 
     total_risk_score = min(100, int(sum(f["score"] for f in factor_breakdown)))
-    
-    if total_risk_score >= 65:
-        risk_level = "CRITICAL"
-        risk_title = "High Risk / Predatory Indicators Detected"
-        risk_summary = "Significant discrepancies, high fees, or non-compliant permissions detected in the loan terms."
-    elif total_risk_score >= 35:
+
+    if total_risk_score >= 76:
+        risk_level = "VERY_HIGH"
+        risk_title = "Very High Risk / Predatory Indicators Detected"
+        risk_summary = "Severe information gaps, large upfront deductions, aggressive recovery terms, or invasive permissions detected."
+    elif total_risk_score >= 51:
+        risk_level = "HIGH"
+        risk_title = "High Risk / Caution Advised"
+        risk_summary = "Multiple significant risk indicators identified, including essential information gaps, fee deductions, or contract discrepancies."
+    elif total_risk_score >= 26:
         risk_level = "MODERATE"
         risk_title = "Moderate Risk / Caution Advised"
         risk_summary = "Loan contains terms that require careful verification before accepting."
     else:
-        risk_level = "SAFE"
+        risk_level = "LOW"
         risk_title = "Low Risk / Standard Microfinance Terms"
         risk_summary = "Loan structure aligns with transparent consumer lending standards."
 
@@ -453,6 +491,9 @@ Return strictly a JSON object with these keys."""
     ]
 
     # 9. Clauses Catalog matching ContractClause[]
+    clause1_risk = "RED" if upfront_deductions and upfront_deductions > 0 else ("YELLOW" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" or principal is None else "GREEN")
+    clause2_risk = "RED" if duration_days is not None and duration_days < 30 else ("YELLOW" if duration_days is None else "GREEN")
+
     clauses = [
         {
             "id": "clause-1",
@@ -460,33 +501,33 @@ Return strictly a JSON object with these keys."""
             "originalText": deduction_status_text,
             "category": "INTEREST_AND_FEES",
             "simpleExplanation": {
-                "en": f"Upfront deduction of PKR {upfront_deductions:,.0f} from the sanctioned principal.",
-                "ur": f"منظور شدہ رقم میں سے PKR {upfront_deductions:,.0f} پیشگی فیس کاٹ لی جائے گی۔",
-                "roman_ur": f"Manzoor shuda raqam mein se PKR {upfront_deductions:,.0f} peshgi fees kaat li jaye gi."
+                "en": f"Upfront deduction of PKR {upfront_deductions:,.0f} from the sanctioned principal." if upfront_deductions and upfront_deductions > 0 and principal is not None else "The exact upfront deductions are not disclosed before approval.",
+                "ur": f"منظور شدہ رقم میں سے PKR {upfront_deductions:,.0f} پیشگی فیس کاٹ لی جائے گی۔" if upfront_deductions and upfront_deductions > 0 and principal is not None else "منظوری سے قبل پیشگی کٹوتیوں کی تفصیل نہیں دی گئی۔",
+                "roman_ur": f"Manzoor shuda raqam mein se PKR {upfront_deductions:,.0f} peshgi fees kaat li jaye gi." if upfront_deductions and upfront_deductions > 0 and principal is not None else "Manzoori se pehle peshgi katoutiyon ki tafseel nahi di gayi."
             },
             "whyItMatters": {
                 "en": "Reduces actual cash received while liability remains on the full principal.",
                 "ur": "ہاتھ میں ملنے والی رقم کم ہو جاتی ہے لیکن واپسی پورے قرض پر کرنا ہوتی ہے۔",
                 "roman_ur": "Haath mein milne wali raqam kam ho jati hai lekin wapsi pooray qarz par karni hoti hai."
             },
-            "riskFlag": "RED" if upfront_deductions > 0 else "GREEN"
+            "riskFlag": clause1_risk
         },
         {
             "id": "clause-2",
             "clauseTitle": "Repayment Horizon & Due Date",
-            "originalText": f"Total repayment of PKR {total_repayment:,.0f} due strictly within {duration_days} days.",
+            "originalText": f"Total repayment of PKR {total_repayment:,.0f} due strictly within {duration_days} days." if total_repayment is not None and duration_days is not None else "Repayment amount and due date are not specified before approval.",
             "category": "DEFAULT_AND_LEGAL",
             "simpleExplanation": {
-                "en": f"Loan must be fully cleared in {duration_days} days.",
-                "ur": f"قرضے کی مکمل واپسی {duration_days} دن کے اندر کرنا ہوگی۔",
-                "roman_ur": f"Qarzay ki mukammal wapsi {duration_days} din ke andar karna hogi."
+                "en": f"Loan must be fully cleared in {duration_days} days." if duration_days is not None else "Loan tenure is not specified in the submitted document.",
+                "ur": f"قرضے کی مکمل واپسی {duration_days} دن کے اندر کرنا ہوگی۔" if duration_days is not None else "قرضے کی مدت دستاویز میں درج نہیں۔",
+                "roman_ur": f"Qarzay ki mukammal wapsi {duration_days} din ke andar karna hogi." if duration_days is not None else "Qarzay ki muddat dastaweez mein darj nahi."
             },
             "whyItMatters": {
                 "en": "Short durations (7-14 days) lead to severe rollover debt-traps.",
                 "ur": "کم مدت (7 تا 14 دن) ادھار واپس نہ کر سکنے کی صورت میں شدید سود کا باعث بنتی ہے۔",
                 "roman_ur": "Kam muddat (7 se 14 din) qarz wapas na hone par mazeed jurmana lagati hai."
             },
-            "riskFlag": "RED" if duration_days < 30 else "GREEN"
+            "riskFlag": clause2_risk
         },
         {
             "id": "clause-3",
@@ -519,9 +560,9 @@ Return strictly a JSON object with these keys."""
         {
             "id": "ver-2",
             "title": "Confirm Net Cash vs Repayment Amount",
-            "description": f"Verify that receiving {'PKR ' + f'{actual_disbursed:,.0f}' if actual_disbursed is not None else 'the cash in hand'} is worth repaying PKR {total_repayment:,.0f}.",
+            "description": f"Verify that receiving {'PKR ' + f'{actual_disbursed:,.0f}' if actual_disbursed is not None else 'the cash in hand'} is worth repaying {'PKR ' + f'{total_repayment:,.0f}' if total_repayment is not None else 'the unspecified repayment amount'}.",
             "isCritical": True,
-            "verificationTip": f"Total cost of this loan is PKR {(total_repayment - (actual_disbursed or principal)):,.0f}."
+            "verificationTip": f"Total cost of this loan is PKR {(total_repayment - (actual_disbursed or principal)):,.0f}." if total_repayment is not None and (actual_disbursed is not None or principal is not None) else "Total cost cannot be calculated because repayment or disbursement is not specified."
         },
         {
             "id": "ver-3",
@@ -534,7 +575,7 @@ Return strictly a JSON object with these keys."""
 
     # 11. Executive Summary
     actual_disbursed_text = f"You will receive PKR {actual_disbursed:,.0f} net after deductions." if actual_disbursed is not None else "The actual amount received cannot be confirmed from the submitted document before approval."
-    total_repay_text = f"You will be required to repay a total of PKR {total_repayment:,.0f} over {duration_days} days."
+    total_repay_text = f"You will be required to repay a total of PKR {total_repayment:,.0f} over {duration_days} days." if total_repayment is not None and duration_days is not None else "The total repayment amount and tenure cannot be confirmed from the submitted document."
 
     executive_summary = {
         "actualAmountReceivedText": actual_disbursed_text,
@@ -553,7 +594,7 @@ Return strictly a JSON object with these keys."""
 
     # 12. Compile Full Analysis Result
     analysis_id = "analysis-py-" + str(uuid.uuid4())[:8]
-    
+
     return {
         "id": analysis_id,
         "createdAt": datetime.utcnow().isoformat() + "Z",
@@ -582,68 +623,103 @@ Return strictly a JSON object with these keys."""
             "actualDisbursedAmount": actual_disbursed,
             "isDisbursementConfirmed": is_disbursement_confirmed,
             "totalRepaymentAmount": total_repayment,
-            "isRepaymentConfirmed": True,
-            "totalCostOfBorrowing": total_repayment - (actual_disbursed or principal),
+            "isRepaymentConfirmed": is_repayment_confirmed,
+            "totalCostOfBorrowing": (total_repayment - actual_disbursed) if total_repayment is not None and actual_disbursed is not None else None,
             "effectiveAnnualPercentageRate": apr,
-            "effectiveMonthlyRate": round(apr / 12, 2),
+            "effectiveMonthlyRate": round(apr / 12, 2) if apr is not None else None,
             "durationDays": duration_days,
             "numberOfInstallments": 1,
             "installmentAmount": total_repayment,
             "chargesList": charges_list,
             "essentialTerms": [
-                {"termName": "Sanctioned Principal Amount", "status": "CLEARLY_SPECIFIED", "details": f"PKR {principal:,.0f}"},
-                {"termName": "Disbursement Amount", "status": "CLEARLY_SPECIFIED" if is_disbursement_confirmed else "PARTIALLY_SPECIFIED", "details": f"PKR {actual_disbursed:,.0f}" if is_disbursement_confirmed else "To be determined after approval"},
-                {"termName": "Markup & Interest Rate", "status": "CLEARLY_SPECIFIED", "details": f"{apr}% Annualized APR"},
-                {"termName": "Loan Tenure & Due Date", "status": "CLEARLY_SPECIFIED", "details": f"{duration_days} Days"},
-                {"termName": "Fee Deductions Breakdown", "status": "CLEARLY_SPECIFIED" if deduction_status == "CONFIRMED_DEDUCTIONS" else ("PARTIALLY_SPECIFIED" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "CLEARLY_SPECIFIED"), "details": deduction_status_text}
+                {
+                    "id": "term-principal",
+                    "termName": "Sanctioned Principal Amount",
+                    "status": "CLEARLY_SPECIFIED" if principal is not None else "NOT_SPECIFIED",
+                    "documentedValue": f"PKR {principal:,.0f}" if principal is not None else "Not specified",
+                    "explanation": f"Documented principal is PKR {principal:,.0f}." if principal is not None else "The approved/sanctioned loan amount is not stated in the document.",
+                    "evidence": f"Principal: PKR {principal:,.0f}" if principal is not None else "No explicit principal amount found."
+                },
+                {
+                    "id": "term-disbursement",
+                    "termName": "Disbursement Amount",
+                    "status": "CLEARLY_SPECIFIED" if is_disbursement_confirmed and actual_disbursed is not None else ("PARTIALLY_SPECIFIED" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "NOT_SPECIFIED"),
+                    "documentedValue": f"PKR {actual_disbursed:,.0f}" if actual_disbursed is not None else "To be determined after approval",
+                    "explanation": f"Documented net disbursement is PKR {actual_disbursed:,.0f}." if actual_disbursed is not None else "The actual amount the borrower will receive is not clearly specified before acceptance.",
+                    "evidence": f"Disbursed Net: PKR {actual_disbursed:,.0f}" if actual_disbursed is not None else "Amount disbursed to borrower: To be determined after approval."
+                },
+                {
+                    "id": "term-repayment",
+                    "termName": "Total repayment amount",
+                    "status": "CLEARLY_SPECIFIED" if is_repayment_confirmed and total_repayment is not None else "NOT_SPECIFIED",
+                    "documentedValue": f"PKR {total_repayment:,.0f}" if total_repayment is not None else "Not confirmed",
+                    "explanation": f"Total contractual repayment amount is documented as PKR {total_repayment:,.0f}." if total_repayment is not None else "Total repayment amount is not specified in the document.",
+                    "evidence": f"Total Repayment: PKR {total_repayment:,.0f}" if total_repayment is not None else "No explicit total repayment figure found."
+                },
+                {
+                    "id": "term-tenure",
+                    "termName": "Loan Tenure & Due Date",
+                    "status": "CLEARLY_SPECIFIED" if duration_days is not None else "NOT_SPECIFIED",
+                    "documentedValue": f"{duration_days} Calendar Days" if duration_days is not None else "Not specified",
+                    "explanation": f"Loan tenure is set to {duration_days} days." if duration_days is not None else "Repayment schedule and installment dates are not specified in the document.",
+                    "evidence": f"Tenure: {duration_days} Days." if duration_days is not None else "No explicit tenure found."
+                },
+                {
+                    "id": "term-charges",
+                    "termName": "Fee Deductions Breakdown",
+                    "status": "CLEARLY_SPECIFIED" if deduction_status == "CONFIRMED_DEDUCTIONS" else ("PARTIALLY_SPECIFIED" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "NOT_SPECIFIED"),
+                    "documentedValue": deduction_status_text,
+                    "explanation": "Upfront deductions reduce the net cash received by the borrower.",
+                    "evidence": deduction_status_text
+                }
             ],
             "assumptions": [
-                f"Calculations based on {duration_days}-day tenure.",
-                "Markup compounded standardly over repayment horizon."
+                f"Calculations based on {duration_days}-day tenure." if duration_days is not None else "Tenure is not specified in the document.",
+                "Markup compounded standardly over repayment horizon." if apr is not None else "APR cannot be calculated due to missing repayment or disbursement figures."
             ]
         },
         "advertisedPromise": {
-            "advertisedAmount": advertised_amount or principal,
+            "advertisedAmount": advertised_amount,
             "advertisedMarkupRate": advertised_rate,
             "advertisedDuration": advertised_duration,
-            "advertisedDisbursedAmount": advertised_amount or principal,
+            "advertisedDisbursedAmount": advertised_amount,
             "marketingClaims": [
                 "Instant Loan Approval",
                 "Low Markup Rate",
                 "Quick Disbursal"
             ],
-            "advertisedRepaymentAmount": expected_repayment or total_repayment
+            "advertisedRepaymentAmount": expected_repayment
         },
         "contractReality": {
             "documentedPrincipal": principal,
             "documentedDisbursement": actual_disbursed,
             "isDisbursementConfirmed": is_disbursement_confirmed,
             "documentedDurationDays": duration_days,
-            "documentedMarkupRateAnnual": round(apr, 2),
+            "documentedMarkupRateAnnual": round(apr, 2) if apr is not None else None,
             "totalUpfrontDeductions": upfront_deductions if deduction_status == "CONFIRMED_DEDUCTIONS" else None,
-            "deductionStatus": "DEDUCTIONS_CONFIRMED" if deduction_status == "CONFIRMED_DEDUCTIONS" else "NO_DEDUCTIONS_MENTIONED",
+            "deductionStatus": "DEDUCTIONS_CONFIRMED" if deduction_status == "CONFIRMED_DEDUCTIONS" else ("POTENTIAL_DEDUCTIONS_UNCLEAR" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "NO_DEDUCTIONS_MENTIONED"),
             "totalRecurringFees": 0,
             "documentedRepaymentAmount": total_repayment,
-            "isRepaymentConfirmed": True,
-            "latePenaltyRatePerDay": 0.01,
+            "isRepaymentConfirmed": is_repayment_confirmed,
+            "latePenaltyRatePerDay": None,
             "isSecpRegisteredClaimed": not has_contact_violation
         },
         "discrepancies": [
             {
                 "id": "disc-1",
                 "category": "FEES_AND_CHARGES",
-                "riskType": "INFORMATION_GAP" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" else "KNOWN_RISK",
-                "promised": f"Disbursed: PKR {principal:,.0f}",
-                "actual": f"Received: PKR {actual_disbursed:,.0f}" if actual_disbursed else "Amount unconfirmed before approval",
-                "severity": "CRITICAL" if upfront_deductions > 0 else "INFO",
-                "explanation": "Upfront deduction reduces actual in-hand cash.",
-                "isNumericalVariance": upfront_deductions > 0,
-                "varianceAmount": upfront_deductions if upfront_deductions > 0 else None,
-                "variancePercentage": round((upfront_deductions / principal) * 100, 1) if upfront_deductions > 0 else None,
+                "riskType": "INFORMATION_GAP" if deduction_status == "POTENTIAL_DEDUCTIONS_UNCLEAR" or principal is None else "KNOWN_RISK",
+                "promised": f"Disbursed: PKR {principal:,.0f}" if principal is not None else "Disbursed amount not specified",
+                "actual": f"Received: PKR {actual_disbursed:,.0f}" if actual_disbursed is not None else "Amount unconfirmed before approval",
+                "severity": "CRITICAL" if upfront_deductions and upfront_deductions > 0 else "WARNING",
+                "explanation": "Upfront deduction reduces actual in-hand cash." if upfront_deductions and upfront_deductions > 0 else "Exact disbursement amount and deductions are not disclosed before approval.",
+                "isNumericalVariance": upfront_deductions is not None and upfront_deductions > 0 and principal is not None and actual_disbursed is not None,
+                "varianceAmount": upfront_deductions if upfront_deductions and upfront_deductions > 0 else None,
+                "variancePercentage": round((upfront_deductions / principal) * 100, 1) if upfront_deductions and upfront_deductions > 0 and principal is not None else None,
                 "evidence": deduction_status_text,
-                "interpretation": "Borrower pays interest on full principal despite receiving lower net amount."
+                "interpretation": "Borrower pays interest on full principal despite receiving lower net amount." if upfront_deductions and upfront_deductions > 0 else "Borrower cannot verify the true cost of the loan before accepting."
             }
-        ] if upfront_deductions > 0 or not is_disbursement_confirmed else [],
+        ] if upfront_deductions > 0 or not is_disbursement_confirmed or principal is None else [],
         "permissions": perms_catalog,
         "permissionAudits": permission_audits,
         "clauses": clauses,
@@ -673,7 +749,7 @@ User Question: {question}
 Provide an objective, protective, and actionable answer citing Pakistani lending protections (SECP / SBP) in clear language:
 """
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash-latest",
                 contents=prompt
             )
             return response.text

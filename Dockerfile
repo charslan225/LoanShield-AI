@@ -17,6 +17,7 @@ COPY backend_fastapi/ ./backend_fastapi/
 COPY --from=frontend-build /app/dist ./dist
 
 ENV PYTHONPATH=/app/backend_fastapi
+ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "backend_fastapi.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn backend_fastapi.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

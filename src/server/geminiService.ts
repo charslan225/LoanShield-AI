@@ -17,23 +17,14 @@ let geminiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
-  // A valid Google Gemini API key starts with 'AIza' (e.g. AIzaSy...).
-  // Passing internal tokens or invalid keys will fail authentication with 401.
-  if (!apiKey.startsWith('AIza')) {
-    return null;
-  }
   if (!geminiClient || cachedKey !== apiKey) {
     try {
       geminiClient = new GoogleGenAI({
         apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
       });
       cachedKey = apiKey;
-    } catch {
+    } catch (err) {
+      console.warn('Failed to initialize GoogleGenAI client:', err);
       return null;
     }
   }

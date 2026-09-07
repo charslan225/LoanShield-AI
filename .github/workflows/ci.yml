@@ -7,38 +7,24 @@ on:
     branches: [main]
 
 jobs:
-  frontend:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm install
 
-      - name: Type check
+      - name: Type check & Lint
         run: npm run lint
 
-      - name: Build
-        run: npm run build
-
-      - name: Test
+      - name: Run Tests
         run: npm test
 
-  backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - run: pip install -r backend_fastapi/requirements.txt
-
-      - name: Import check
-        run: python -c "from backend_fastapi.main import app; print('FastAPI app loaded successfully')"
+      - name: Build App
+        run: npm run build

@@ -224,20 +224,39 @@ export function calculateFinancials(input: CalculationInput): FinancialBreakdown
     {
       id: 'term-late-penalty',
       termName: 'Late payment calculation method',
-      status: (rawTextLower.includes('per calendar day') || rawTextLower.includes('flat fee') || rawTextLower.includes('grace period') || rawTextLower.includes('daily default'))
+      status: (
+        rawTextLower.includes('per calendar day') ||
+        rawTextLower.includes('flat fee') ||
+        rawTextLower.includes('grace period') ||
+        rawTextLower.includes('daily default') ||
+        rawTextLower.includes('flat pkr') ||
+        rawTextLower.includes('fixed pkr') ||
+        rawTextLower.includes('administrative charge') ||
+        rawTextLower.includes('late fee') ||
+        rawTextLower.includes('no late fee')
+      )
         ? 'CLEARLY_SPECIFIED'
-        : (rawTextLower.includes('penalty') || rawTextLower.includes('late charge'))
+        : (rawTextLower.includes('penalty') || rawTextLower.includes('delay') || rawTextLower.includes('overdue') || rawTextLower.includes('late charge'))
           ? 'PARTIALLY_SPECIFIED'
           : 'NOT_SPECIFIED',
-      documentedValue: rawTextLower.includes('per calendar day') || rawTextLower.includes('daily default')
+      documentedValue: (rawTextLower.includes('per calendar day') || rawTextLower.includes('daily default'))
         ? 'Daily accrued rate'
-        : rawTextLower.includes('flat fee')
+        : (rawTextLower.includes('flat') || rawTextLower.includes('fixed'))
           ? 'Flat fee structure'
-          : 'Not clearly defined',
-      explanation: (rawTextLower.includes('per calendar day') || rawTextLower.includes('flat fee'))
+          : rawTextLower.includes('grace period')
+            ? 'Grace period structure'
+            : 'Not clearly defined',
+      explanation: (
+        rawTextLower.includes('per calendar day') ||
+        rawTextLower.includes('flat') ||
+        rawTextLower.includes('fixed') ||
+        rawTextLower.includes('grace period')
+      )
         ? 'Late payment penalty calculation method is documented in the agreement.'
         : 'Late payment calculation method is ambiguous or not clearly specified before signing.',
-      evidence: rawTextLower.includes('penalty') ? 'Late payment clause identified.' : 'No late payment formula found in agreement.'
+      evidence: (rawTextLower.includes('penalty') || rawTextLower.includes('late'))
+        ? 'Late payment clause identified.'
+        : 'No late payment formula found in agreement.'
     }
   ];
 
@@ -321,15 +340,27 @@ export function calculateRiskAssessment(params: {
     transparencyEvidence = 'Amount disbursed to borrower: To be determined after approval. Rates/charges deferred.';
     transparencyInterpretation = 'The agreement defers critical financial figures until after approval, creating major information asymmetry before loan acceptance.';
     reasons.push('Key financial terms (such as actual disbursement, exact charges, or total repayment) are missing or deferred until after approval.');
-  } else if (notSpecifiedCount >= 1 || partialCount >= 2) {
-    transparencyScore = 12;
+  } else if (notSpecifiedCount >= 2 || (notSpecifiedCount === 1 && partialCount >= 1)) {
+    transparencyScore = 9;
     transparencyRiskType = 'INFORMATION_GAP';
     transparencyFinding = 'Essential financial figures are partially specified or deferred.';
     transparencyEvidence = 'Certain charges or repayment figures are not fixed in the agreement.';
     transparencyInterpretation = 'Borrower cannot confirm all financial obligations before loan acceptance.';
     reasons.push('Some essential financial figures are not clearly specified in the document.');
+  } else if (notSpecifiedCount === 1) {
+    transparencyScore = 4;
+    transparencyRiskType = 'INFORMATION_GAP';
+    transparencyFinding = 'One secondary term requires minor clarification.';
+    transparencyEvidence = 'Core loan principal and repayment are defined; one secondary term is omitted.';
+    transparencyInterpretation = 'Core financial figures are present, with minor clarification advised.';
+  } else if (partialCount >= 2) {
+    transparencyScore = 4;
+    transparencyRiskType = 'INFORMATION_GAP';
+    transparencyFinding = 'Minor financial term ambiguity identified.';
+    transparencyEvidence = 'Some secondary financial terms require clarification.';
+    transparencyInterpretation = 'Most core financial figures are present, with minor clarification advised.';
   } else if (partialCount === 1) {
-    transparencyScore = 6;
+    transparencyScore = 2;
     transparencyRiskType = 'INFORMATION_GAP';
     transparencyFinding = 'Minor financial term ambiguity identified.';
     transparencyEvidence = 'One secondary financial term requires clarification.';
@@ -387,9 +418,12 @@ export function calculateRiskAssessment(params: {
     } else if (ratio >= 10) {
       deductionScore = 10;
       reasons.push(`Moderate upfront deductions detected (${Math.round(ratio)}% of loan principal).`);
-    } else {
+    } else if (ratio >= 5) {
       deductionScore = 4;
       reasons.push(`Minor upfront processing fee identified (${Math.round(ratio)}%).`);
+    } else {
+      deductionScore = 1;
+      positiveFactors.push(`Minimal standard processing/statutory fee (${Math.round(ratio * 10) / 10}%).`);
     }
 
     deductionFinding = `${Math.round(ratio)}% (PKR ${(financials.totalDeductions || 0).toLocaleString()}) deducted upfront before disbursement`;
@@ -437,15 +471,21 @@ export function calculateRiskAssessment(params: {
     penaltyEvidence = 'Clause specifies daily default rate accruing immediately on overdue balance.';
     penaltyInterpretation = 'Missing the repayment date causes rapid escalation of debt due to compounding daily charges.';
     reasons.push('Substantial daily late payment penalties or compounding charges detected in the agreement.');
-  } else if (isLatePenaltyUnclear) {
+  } else if (lateTerm?.status === 'NOT_SPECIFIED') {
     penaltyScore = 8;
     penaltyRiskType = 'INFORMATION_GAP';
     penaltyFinding = 'Late payment calculation method is not clearly specified in the document.';
     penaltyEvidence = 'Document lacks a specific late payment formula, flat cap, or grace period specification.';
     penaltyInterpretation = 'Borrower cannot confirm in advance what financial penalty will be levied if payment is delayed.';
     reasons.push('Late payment calculation method is not clearly specified in the document.');
+  } else if (lateTerm?.status === 'PARTIALLY_SPECIFIED') {
+    penaltyScore = 4;
+    penaltyRiskType = 'INFORMATION_GAP';
+    penaltyFinding = 'Late payment terms are partially specified.';
+    penaltyEvidence = 'Late payment terms are noted but exact formulas require confirmation.';
+    penaltyInterpretation = 'Borrower should verify delay charges prior to acceptance.';
   } else {
-    penaltyScore = 2;
+    penaltyScore = 0;
     penaltyRiskType = 'KNOWN_RISK';
     positiveFactors.push('Late penalty terms follow standard capped or disclosed timelines.');
   }
@@ -526,8 +566,10 @@ export function calculateRiskAssessment(params: {
         discrepancyScore = 14;
       } else if (diffPct >= 10) {
         discrepancyScore = 9;
+      } else if (diffPct >= 5) {
+        discrepancyScore = 4;
       } else {
-        discrepancyScore = 5;
+        discrepancyScore = 1;
       }
 
       discrepancyFinding = `PKR ${numericalDiff.toLocaleString()} (${diffPct}%) variance between advertised amount and net cash disbursed.`;
@@ -650,7 +692,7 @@ export function calculateRiskAssessment(params: {
     recoveryRiskType = 'KNOWN_RISK';
     reasons.push('Recovery terms include contacting third parties, family members, or emergency contacts.');
   } else {
-    recoveryScore = 1;
+    recoveryScore = 0;
     positiveFactors.push('Standard recovery and dispute terms without unauthorized third-party contact.');
   }
 

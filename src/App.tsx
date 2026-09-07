@@ -11,6 +11,30 @@ import { DemoModal } from './components/DemoModal';
 import { AuthModal } from './components/AuthModal';
 import { AnalysisResult, DemoScenario, UserProfile } from './types';
 import { useLanguage } from './utils/LanguageContext';
+import { analyzeLoanDocumentSync } from './utils/clientAnalyzer';
+
+function saveLocalAnalysis(analysis: AnalysisResult) {
+  try {
+    const raw = localStorage.getItem('loanshield_local_analyses');
+    const list: AnalysisResult[] = raw ? JSON.parse(raw) : [];
+    // Keep last 30 analyses, replace if existing
+    const filtered = list.filter((a) => a.id !== analysis.id);
+    filtered.unshift(analysis);
+    localStorage.setItem('loanshield_local_analyses', JSON.stringify(filtered.slice(0, 30)));
+  } catch (err) {
+    console.warn('Could not save analysis locally:', err);
+  }
+}
+
+function getLocalAnalysis(id: string): AnalysisResult | null {
+  try {
+    const raw = localStorage.getItem('loanshield_local_analyses');
+    const list: AnalysisResult[] = raw ? JSON.parse(raw) : [];
+    return list.find((a) => a.id === id) || null;
+  } catch {
+    return null;
+  }
+}
 
 export function App() {
   const navigate = useNavigate();
@@ -37,29 +61,67 @@ export function App() {
     setIsAnalyzing(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
+    let finalAnalysis: AnalysisResult | null = null;
+    const endpoint = formData.method === 'MANUAL_ENTRY' ? '/api/analyze/manual' : '/api/analyze/upload';
+
+    // Attempt 1: Server-side analysis
     try {
-      const endpoint = formData.method === 'MANUAL_ENTRY' ? '/api/analyze/manual' : '/api/analyze/upload';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
-      if (data.success && data.analysis) {
-        setTimeout(() => {
-          setCurrentAnalysis(data.analysis);
-          setIsAnalyzing(false);
-          navigate('/results');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 1500);
-      } else {
-        throw new Error(data.error || 'Analysis failed');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.analysis) {
+          finalAnalysis = data.analysis;
+        }
       }
-    } catch (err: any) {
-      console.error('Analysis error:', err);
+    } catch (networkErr) {
+      console.warn('First fetch attempt encountered error, attempting quick retry:', networkErr);
+    }
+
+    // Attempt 2: Quick retry if first network fetch failed
+    if (!finalAnalysis) {
+      try {
+        await new Promise((r) => setTimeout(r, 400));
+        const retryRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (retryRes.ok) {
+          const data = await retryRes.json();
+          if (data.success && data.analysis) {
+            finalAnalysis = data.analysis;
+          }
+        }
+      } catch (retryErr) {
+        console.warn('Retry fetch also failed, falling back to local analysis engine:', retryErr);
+      }
+    }
+
+    // Fallback: If network or server unavailable, run resilient sync client engine
+    if (!finalAnalysis) {
+      try {
+        finalAnalysis = analyzeLoanDocumentSync(formData);
+      } catch (fallbackErr) {
+        console.error('Local fallback engine error:', fallbackErr);
+      }
+    }
+
+    if (finalAnalysis) {
+      saveLocalAnalysis(finalAnalysis);
+      setTimeout(() => {
+        setCurrentAnalysis(finalAnalysis);
+        setIsAnalyzing(false);
+        navigate('/results');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 1200);
+    } else {
       setIsAnalyzing(false);
-      alert(err.message || 'An error occurred during loan analysis. Please try again.');
+      console.error('All analysis options exhausted.');
     }
   };
 
@@ -73,14 +135,25 @@ export function App() {
   const handleSelectHistoryAnalysis = async (analysisId: string) => {
     try {
       const res = await fetch(`/api/analysis/${analysisId}`);
-      const data = await res.json();
-      if (data.success && data.analysis) {
-        setCurrentAnalysis(data.analysis);
-        navigate('/results');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.analysis) {
+          setCurrentAnalysis(data.analysis);
+          navigate('/results');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
       }
     } catch (err) {
-      console.error('Failed to load analysis:', err);
+      console.warn('Failed to load analysis from server, checking local storage:', err);
+    }
+
+    // Fallback to local storage
+    const local = getLocalAnalysis(analysisId);
+    if (local) {
+      setCurrentAnalysis(local);
+      navigate('/results');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 

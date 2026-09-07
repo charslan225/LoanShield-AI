@@ -70,7 +70,7 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
     }
   };
 
-  const handleFileChange = (file: File) => {
+  const handleFileChange = async (file: File) => {
     if (!file) return;
     setUploadedFile(file);
     // Reset any manually selected permissions so permissions are extracted cleanly from document
@@ -83,7 +83,6 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
       else if (file.name.endsWith('.webp')) mime = 'image/webp';
       else if (file.name.endsWith('.txt')) mime = 'text/plain';
     }
-    setFileMimeType(mime);
 
     // If it's a text file, read the text content directly too
     if (file.type.includes('text') || file.name.endsWith('.txt')) {
@@ -94,8 +93,55 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
         }
       };
       textReader.readAsText(file);
+      setFileMimeType(mime || 'text/plain');
+      return;
     }
 
+    // If it's an image, downscale & compress to prevent oversized payloads and fetch failures
+    if (file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name)) {
+      setFileMimeType('image/jpeg');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1600;
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            const base64 = dataUrl.split(',')[1] || dataUrl;
+            setFileBase64(base64);
+            return;
+          }
+          const rawUrl = (e.target?.result as string) || '';
+          setFileBase64(rawUrl.split(',')[1] || rawUrl);
+        };
+        img.onerror = () => {
+          const rawUrl = (e.target?.result as string) || '';
+          setFileBase64(rawUrl.split(',')[1] || rawUrl);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    // Default file reader for PDF or other documents
+    setFileMimeType(mime);
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
@@ -135,21 +181,21 @@ Total Repayment Required at Maturity: PKR 26,250
 Late Default Rate: 2.5% per calendar day calculated on gross PKR 25,000 facility.
 Collection & Recovery: Borrower explicitly permits lender and field collection agencies to access contacts, employer, and social references to secure repayment.`);
     } else if (presetType === 'digital_30day') {
-      setLenderName('QuickLoan Digital NBFC (Fictional)');
+      setLenderName('QuickCash Digital NBFC (Licensed)');
       setAppName('QuickCash Mobile');
       setAdvertisedAmount('50000');
       setAdvertisedDuration('30 Days');
-      setAdvertisedMarkupRate('Low Markup / 0.1% daily');
-      setExpectedRepayment('51500');
-      setSelectedPermissions(['CONTACTS', 'STORAGE_GALLERY', 'CAMERA', 'LOCATION']);
+      setAdvertisedMarkupRate('2.5% Monthly Markup');
+      setExpectedRepayment('51250');
+      setSelectedPermissions(['CAMERA', 'LOCATION', 'SMS']);
       setRawText(`DIGITAL MICRO-CREDIT CONTRACT & DISBURSEMENT MEMORANDUM
-Lender: QuickLoan Digital NBFC Pvt Ltd.
-Borrower Credit Facility: PKR 50,000
-Net Disbursement: PKR 39,000 (after PKR 6,500 Risk Assessment Fee, PKR 3,000 Platform Fee, PKR 1,500 Processing Fee).
+Lender: QuickCash Digital NBFC Pvt Ltd (Licensed Digital Lender).
+Approved Facility: PKR 50,000
+Net Disbursement: PKR 47,000 (after PKR 3,000 upfront processing fee, representing 6.0%).
 Term: 30 Calendar Days.
-Total Repayment: PKR 52,500 due on Day 30.
-Late Payment Penalty: Daily default charge of 1.5% per day accrued on original facility for each day of default.
-Recovery Clause: Borrower authorizes lender to contact employer, family references, and phonebook contacts to facilitate repayment.`);
+Total Repayment: PKR 51,250 due on Day 30.
+Late Payment Penalty: Flat PKR 250 administrative delay charge after 3-day grace period.
+Data Privacy: Standard KYC verification only (Camera for CNIC, Location for residency, SMS for OTP). No access to contacts or personal media.`);
     } else {
       setLenderName('TrustMicro Finance Bank (SECP Licensed)');
       setAppName('Trust Bank Digital');
@@ -157,15 +203,16 @@ Recovery Clause: Borrower authorizes lender to contact employer, family referenc
       setAdvertisedDuration('90 Days');
       setAdvertisedMarkupRate('24% Annualized APR');
       setExpectedRepayment('106000');
-      setSelectedPermissions(['CAMERA', 'LOCATION']);
+      setSelectedPermissions(['CAMERA', 'PHONE_STATE']);
       setRawText(`REGULATED DIGITAL PERSONAL FINANCING AGREEMENT
 Lender: TrustMicro Finance Bank Limited (SECP NBFC License #0982-REG)
 Approved Facility: PKR 100,000
-Net Disbursed: PKR 98,500 (PKR 1,500 standard FED & documentation stamp fee).
-Term: 90 Days (3 Monthly Installments of PKR 35,333).
+Net Disbursed: PKR 98,500 (PKR 1,500 standard statutory FED & stamp fee).
+Term: 90 Days (3 Monthly Installments of PKR 35,333, total repayment PKR 106,000).
 Annual Percentage Rate (APR): 24.0% per annum flat.
-Late Penalty: Fixed PKR 500 late fee per installment if overdue by > 7 days.
-Data Privacy: In accordance with SECP Circular No. 15, no phonebook or photo storage access is requested or stored.`);
+Late Penalty: Fixed PKR 500 late fee per installment with 7-day grace period.
+Data Privacy: In accordance with SECP Circular No. 15, no phonebook or photo storage access is requested or stored.
+Recovery: Institutional bank notices only.`);
     }
   };
 

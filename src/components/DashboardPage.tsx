@@ -49,14 +49,43 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     try {
       setLoading(true);
       const res = await fetch('/api/analysis-history');
-      const data = await res.json();
-      if (data.success && data.history) {
-        setHistory(data.history);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.history) && data.history.length > 0) {
+          setHistory(data.history);
+          return;
+        }
       }
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.warn('Failed to load history from server, falling back to local storage:', err);
     } finally {
       setLoading(false);
+    }
+
+    // Fallback to local storage if server is unavailable or returned empty
+    try {
+      const raw = localStorage.getItem('loanshield_local_analyses');
+      if (raw) {
+        const localList = JSON.parse(raw);
+        if (Array.isArray(localList)) {
+          const mapped = localList.map((a: any) => ({
+            id: a.id,
+            createdAt: a.createdAt,
+            lenderName: a.lenderName,
+            analysisMethod: a.analysisMethod,
+            isDemo: a.isDemo || false,
+            principalAmount: a.financialBreakdown?.principalAmount || 0,
+            actualDisbursed: a.financialBreakdown?.actualDisbursedAmount || 0,
+            totalRepayment: a.financialBreakdown?.totalRepaymentAmount || 0,
+            riskScore: a.riskAssessment?.overallScore || 0,
+            riskLevel: a.riskAssessment?.riskLevel || 'LOW',
+            riskTitle: a.riskAssessment?.riskTitle || '',
+          }));
+          setHistory(mapped);
+        }
+      }
+    } catch (localErr) {
+      console.error('Error reading local history:', localErr);
     }
   };
 
@@ -64,9 +93,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     e.stopPropagation();
     try {
       await fetch(`/api/analysis/${id}`, { method: 'DELETE' });
-      setHistory(prev => prev.filter(h => h.id !== id));
     } catch (err) {
-      console.error('Delete error:', err);
+      console.warn('Delete error from server:', err);
+    }
+    // Always delete from state and local storage
+    setHistory(prev => prev.filter(h => h.id !== id));
+    try {
+      const raw = localStorage.getItem('loanshield_local_analyses');
+      if (raw) {
+        const list = JSON.parse(raw);
+        const filtered = list.filter((item: any) => item.id !== id);
+        localStorage.setItem('loanshield_local_analyses', JSON.stringify(filtered));
+      }
+    } catch (localErr) {
+      console.error('Error removing from local storage:', localErr);
     }
   };
 

@@ -217,9 +217,10 @@ Recovery: Institutional bank notices only.`);
   };
 
   const handleSubmit = () => {
+    const isManual = method === 'MANUAL_ENTRY';
     onStartAnalysisProcess({
       method,
-      lenderName: lenderName || (method === 'MANUAL_ENTRY' ? 'Fast Loan Provider' : 'Digital Lender'),
+      lenderName: lenderName || (isManual ? 'Fast Loan Provider' : 'Digital Lender'),
       appName: appName || 'Digital Credit App',
       advertisedAmount: advertisedAmount ? parseFloat(advertisedAmount) : null,
       advertisedDuration,
@@ -229,11 +230,11 @@ Recovery: Institutional bank notices only.`);
       fileMimeType: fileMimeType || undefined,
       fileName: uploadedFile?.name || undefined,
       rawText: rawText || undefined,
-      manualPrincipal: manualPrincipal ? parseFloat(manualPrincipal) : undefined,
-      manualDurationDays: manualDurationDays ? parseInt(manualDurationDays) : undefined,
-      manualMarkupRateAnnual: manualMarkupRateAnnual ? parseFloat(manualMarkupRateAnnual) : undefined,
-      manualUpfrontDeductions: manualUpfrontDeductions ? parseFloat(manualUpfrontDeductions) : undefined,
-      manualChargesDescription,
+      manualPrincipal: isManual && manualPrincipal ? parseFloat(manualPrincipal) : undefined,
+      manualDurationDays: isManual && manualDurationDays ? parseInt(manualDurationDays) : undefined,
+      manualMarkupRateAnnual: isManual && manualMarkupRateAnnual ? parseFloat(manualMarkupRateAnnual) : undefined,
+      manualUpfrontDeductions: isManual && manualUpfrontDeductions ? parseFloat(manualUpfrontDeductions) : undefined,
+      manualChargesDescription: isManual ? manualChargesDescription : undefined,
       requestedPermissions: selectedPermissions
     });
   };

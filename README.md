@@ -19,7 +19,7 @@ However, borrowers frequently encounter hidden traps:
 2. **7-Day Rollover Traps**: Promised 90-day durations collapse into 7-day deadlines with daily extension and penalty fees.
 3. **Invasive Privacy & Social Recovery**: Apps request contact book and photo gallery access to threaten calling family, friends, and employers if repayment is delayed.
 
-LoanShield AI audits these risks instantly using **Google Gemini 3.7 Flash** coupled with a **100% deterministic financial calculations engine**.
+LoanShield AI audits these risks instantly using **Google Gemini** coupled with a **100% deterministic financial calculations engine**.
 
 ---
 
@@ -75,8 +75,8 @@ Translates complex legal boilerplate into three accessible formats:
 ## Tech Stack & Environment
 
 - **Frontend**: React 19, TypeScript (strict mode), Tailwind CSS v4, Lucide Icons, Recharts, React Router v7
-- **Backend**: Python 3.11, FastAPI, Uvicorn, Passlib (bcrypt), Slowapi (rate limiting)
-- **AI Intelligence**: Google Gemini (`@google/genai`)
+- **Backend**: Python 3.11, FastAPI, Uvicorn, Pydantic, bcrypt
+- **AI Intelligence**: Google Gemini (`google-genai` Python SDK)
 - **Testing**: Vitest, @testing-library/react
 - **Typography**: Plus Jakarta Sans, Noto Nastaliq Urdu, JetBrains Mono
 
@@ -88,27 +88,35 @@ Translates complex legal boilerplate into three accessible formats:
 - Node.js 20+
 - Python 3.11+
 
-### Frontend (Vite dev server)
-```bash
-npm install
-npm run dev          # starts Vite on port 5173
-```
-Vite proxies `/api` requests to the FastAPI backend at `http://127.0.0.1:8000`.
-
 ### Backend (FastAPI)
 ```bash
 cd backend_fastapi
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate         # Windows
+source venv/bin/activate      # macOS/Linux
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
+### Frontend (Vite dev server)
+```bash
+npm install
+npm run dev:frontend          # starts Vite on port 5173
+```
+Vite proxies `/api` requests to the FastAPI backend at `http://127.0.0.1:8000`.
+
+### Both at once
+```bash
+npm run dev                   # FastAPI (8000) + Vite (5173) together
+```
+
 ### Environment Variables
-Create a `.env` file based on `.env.example`:
+Create `backend_fastapi/.env` based on `.env.example`:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-3.8-flash
 ```
+Without a key, the app still runs — analysis falls back to the deterministic engine and the advisor uses a canned response. On transient model overload (503) the backend automatically retries with `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, and `gemini-flash-latest`.
 
 ---
 
@@ -116,25 +124,14 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start Vite dev server |
+| `npm run dev` | Start FastAPI backend + Vite dev server together |
+| `npm run dev:backend` | Start FastAPI only (port 8000) |
+| `npm run dev:frontend` | Start Vite only (port 5173) |
 | `npm run build` | Production build to `dist/` |
+| `npm start` | Serve built SPA + API via FastAPI (ENV=production) |
 | `npm run lint` | TypeScript type checking (strict mode) |
 | `npm test` | Run unit tests |
 | `npm run test:watch` | Run tests in watch mode |
-
----
-
-## Docker
-
-```bash
-# Build and run
-docker compose up --build
-
-# Or build manually
-docker build -t loanshield-ai .
-docker run -p 8000:8000 -e GEMINI_API_KEY=your_key loanshield-ai
-```
-The container serves both the frontend SPA and the FastAPI backend on port 8000.
 
 ---
 

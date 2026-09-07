@@ -107,7 +107,7 @@ export const Footer: React.FC = () => {
               Audit Transparency
             </h5>
             <p className="text-xs text-[#888888] leading-relaxed mb-3">
-              Powered by Google Gemini 3.7 Flash for multimodal document extraction, coupled with mathematical deterministic financial calculations.
+              Powered by Google Gemini for multimodal document extraction, coupled with mathematical deterministic financial calculations.
             </p>
             <div className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#161616] text-[#FF6321] border border-[#FF6321]/30 text-[11px] font-semibold">
               SECP Circular No. 15 Compliant
